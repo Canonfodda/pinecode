@@ -1,0 +1,186 @@
+// ============================================================================
+// TREND METER LIBRARY - Multi-Timeframe Trend Strength Calculation Library
+// ============================================================================
+//
+// VERSION:      1.0.0
+// CREATED:      2025-11-09
+// MODIFIED:     2025-11-09
+// AUTHOR:       Canonfodda/Claude Code
+// REPOSITORY:   pinecode
+//
+// DESCRIPTION:
+//   Library providing numeric trend scale (1-9) calculation based on
+//   configurable trend meters with ADX strength measurement and Heikin Ashi
+//   confirmation across multiple timeframes.
+//
+// EXPORTS:
+//   - calcMacd()             : MACD crossover calculation
+//   - calcMomDad()           : Top Dog Trading Mom/Dad crossover
+//   - calcRsi()              : RSI 50-level calculation
+//   - calcRsiSigCross()      : RSI signal line cross calculation
+//   - calcTrendCandles()     : Heikin Ashi trend candles
+//   - getMeterResult()       : Get result from meter choice string
+//   - getLowerTimeframe()    : Calculate lower timeframe string
+//   - calcHaTrendStrength()  : Heikin Ashi trend strength (-2 to +2)
+//   - calculateTrendScale()  : Main calculation: returns 1-9 scale
+//
+// SCALE:
+//   9 = Very Strong Long    |  1 = Very Strong Short
+//   8 = Strong Long         |  2 = Strong Short
+//   7 = Weak Long           |  3 = Weak Short
+//   6 = Very Weak Long      |  4 = Very Weak Short
+//   5 = No Trend (neutral)
+//
+// CHANGELOG:
+//   1.0.0 - 2025-11-09 - Initial library release
+//
+// ============================================================================
+
+//@version=6
+library("TrendMeterLib", overlay=true)
+
+// ===== EXPORTED CALCULATION FUNCTIONS =====
+
+// Standard MACD Crossover
+// @param fastLen Fast EMA length
+// @param slowLen Slow EMA length
+// @param signalLen Signal line EMA length
+// @returns true if MACD line > signal line (bullish), false otherwise
+export calcMacd(int fastLen, int slowLen, int signalLen) =>
+    macdLine = ta.ema(close, fastLen) - ta.ema(close, slowLen)
+    signalLine = ta.ema(macdLine, signalLen)
+    macdLine > signalLine
+
+// Top Dog Trading - Mom Dad Crossover
+// @returns true if Mom > Dad (bullish), false otherwise
+export calcMomDad() =>
+    topDogMom = ta.ema(close, 5) - ta.ema(close, 20)
+    topDogDad = ta.ema(topDogMom, 30)
+    topDogMom > topDogDad
+
+// RSI 50-Level Calculation
+// @param length RSI calculation length
+// @returns true if RSI > 50 (bullish), false otherwise
+export calcRsi(int length) =>
+    ta.rsi(close, length) > 50
+
+// RSI Signal Line Cross using Linear Regression
+// @returns true if RSI > signal line (bullish), false otherwise
+export calcRsiSigCross() =>
+    rsiValue = ta.rsi(close, 13)
+    signalLength = 21
+    x = bar_index
+    y = rsiValue
+    x_ = ta.sma(x, signalLength)
+    y_ = ta.sma(y, signalLength)
+    mx = ta.stdev(x, signalLength)
+    my = ta.stdev(y, signalLength)
+    c = ta.correlation(x, y, signalLength)
+    slope = c * (my / mx)
+    inter = y_ - slope * x_
+    linReg = x * slope + inter
+    rsiValue > linReg
+
+// Trend Candles (Heikin Ashi based)
+// @returns true if trend candle is bullish, false otherwise
+export calcTrendCandles() =>
+    haclose = ohlc4
+    var float haopen = na
+    haopen := na(haopen[1]) ? (open + close) / 2 : (haopen[1] + haclose[1]) / 2
+    ccolor = haclose - haopen > 0
+    inside6 = haopen <= math.max(haopen[6], haclose[6]) and haopen >= math.min(haopen[6], haclose[6]) and haclose <= math.max(haopen[6], haclose[6]) and haclose >= math.min(haopen[6], haclose[6])
+    inside5 = haopen <= math.max(haopen[5], haclose[5]) and haopen >= math.min(haopen[5], haclose[5]) and haclose <= math.max(haopen[5], haclose[5]) and haclose >= math.min(haopen[5], haclose[5])
+    inside4 = haopen <= math.max(haopen[4], haclose[4]) and haopen >= math.min(haopen[4], haclose[4]) and haclose <= math.max(haopen[4], haclose[4]) and haclose >= math.min(haopen[4], haclose[4])
+    inside3 = haopen <= math.max(haopen[3], haclose[3]) and haopen >= math.min(haopen[3], haclose[3]) and haclose <= math.max(haopen[3], haclose[3]) and haclose >= math.min(haopen[3], haclose[3])
+    inside2 = haopen <= math.max(haopen[2], haclose[2]) and haopen >= math.min(haopen[2], haclose[2]) and haclose <= math.max(haopen[2], haclose[2]) and haclose >= math.min(haopen[2], haclose[2])
+    inside1 = haopen <= math.max(haopen[1], haclose[1]) and haopen >= math.min(haopen[1], haclose[1]) and haclose <= math.max(haopen[1], haclose[1]) and haclose >= math.min(haopen[1], haclose[1])
+    colorvalue = inside6 ? ccolor[6] : inside5 ? ccolor[5] : inside4 ? ccolor[4] : inside3 ? ccolor[3] : inside2 ? ccolor[2] : inside1 ? ccolor[1] : ccolor
+    colorvalue
+
+// Get meter result based on selection string
+// @param meterChoice String selection of meter type
+// @returns true if meter is bullish, false otherwise
+export getMeterResult(string meterChoice) =>
+    result = false
+    if meterChoice == "MACD Crossover - 12, 26, 9"
+        result := calcMacd(12, 26, 9)
+    else if meterChoice == "MACD Crossover - Fast - 8, 21, 5"
+        result := calcMacd(8, 21, 5)
+    else if meterChoice == "Mom Dad Cross (Top Dog Trading)"
+        result := calcMomDad()
+    else if meterChoice == "RSI Signal Line Cross - RSI 13, Sig 21"
+        result := calcRsiSigCross()
+    else if meterChoice == "RSI 13: > or < 50"
+        result := calcRsi(13)
+    else if meterChoice == "RSI 5: > or < 50"
+        result := calcRsi(5)
+    else if meterChoice == "Trend Candles"
+        result := calcTrendCandles()
+    result
+
+// Get lower timeframe string from parent timeframe
+// @param parentTf Parent timeframe string
+// @param divisor Division factor for lower timeframe
+// @returns Lower timeframe string (in minutes)
+export getLowerTimeframe(string parentTf, int divisor) =>
+    parentTfSeconds = timeframe.in_seconds(parentTf)
+    lowerTfSeconds = parentTfSeconds / divisor
+    lowerTfMinutes = lowerTfSeconds / 60
+    lowerTfMinutes >= 1 ? str.tostring(int(lowerTfMinutes)) : "1"
+
+// Calculate Heikin Ashi trend strength
+// @param haCloseTf Timeframe for HA close calculation
+// @param haOpenTf Timeframe for HA open calculation
+// @returns Strength value: -2 (strong bear), -1 (weak bear), 0 (neutral), +1 (weak bull), +2 (strong bull)
+export calcHaTrendStrength(string haCloseTf, string haOpenTf) =>
+    haClose = request.security(ticker.heikinashi(syminfo.tickerid), haCloseTf, close)
+    haOpen = request.security(ticker.heikinashi(syminfo.tickerid), haCloseTf, open)
+    haHigh = request.security(ticker.heikinashi(syminfo.tickerid), haCloseTf, high)
+    haLow = request.security(ticker.heikinashi(syminfo.tickerid), haCloseTf, low)
+    bullish = haClose > haOpen
+    bodySize = math.abs(haClose - haOpen)
+    totalRange = haHigh - haLow
+    bodyRatio = totalRange > 0 ? bodySize / totalRange : 0
+    strength = bodyRatio > 0.7 ? 2 : bodyRatio > 0.4 ? 1 : 0
+    bullish ? strength : -strength
+
+// Calculate trend scale from meter agreement, ADX strength, and HA confirmation
+// @param meter1Result Boolean result from trend meter 1
+// @param meter2Result Boolean result from trend meter 2
+// @param meter3Result Boolean result from trend meter 3
+// @param adxValue Current ADX value
+// @param vsAdx Very Strong ADX threshold
+// @param sAdx Strong ADX threshold
+// @param wAdx Weak ADX threshold
+// @param haStrength Heikin Ashi strength on parent timeframe (-2 to +2)
+// @param haLowerStrength Heikin Ashi strength on lower timeframe (-2 to +2)
+// @param useHa Enable/disable HA confirmation
+// @param useLowerHa Enable/disable lower TF HA confirmation
+// @returns Trend scale from 1 (Very Strong Short) to 9 (Very Strong Long)
+export calculateTrendScale(bool meter1Result, bool meter2Result, bool meter3Result, float adxValue, float vsAdx, float sAdx, float wAdx, int haStrength, int haLowerStrength, bool useHa, bool useLowerHa) =>
+    metersPositive = (meter1Result ? 1 : 0) + (meter2Result ? 1 : 0) + (meter3Result ? 1 : 0)
+    metersNegative = (not meter1Result ? 1 : 0) + (not meter2Result ? 1 : 0) + (not meter3Result ? 1 : 0)
+    all3Positive = metersPositive == 3
+    all3Negative = metersNegative == 3
+    twoPositive = metersPositive == 2
+    twoNegative = metersNegative == 2
+    haConfirmsUp = useHa ? haStrength > 0 : true
+    haConfirmsDown = useHa ? haStrength < 0 : true
+    haLowerConfirmsUp = useLowerHa ? haLowerStrength > 0 : true
+    haLowerConfirmsDown = useLowerHa ? haLowerStrength < 0 : true
+    strongHaUp = haStrength >= 2 or haLowerStrength >= 2
+    strongHaDown = haStrength <= -2 or haLowerStrength <= -2
+    scale = 5
+    if all3Positive
+        baseScale = adxValue >= vsAdx ? 9 : adxValue >= sAdx ? 8 : adxValue >= wAdx ? 7 : 6
+        scale := not haConfirmsUp or not haLowerConfirmsUp ? math.max(baseScale - 1, 6) : strongHaUp and baseScale == 8 ? 9 : baseScale
+    else if twoPositive
+        scale := haConfirmsUp and haLowerConfirmsUp ? 7 : 6
+    else if all3Negative
+        baseScale = adxValue >= vsAdx ? 1 : adxValue >= sAdx ? 2 : adxValue >= wAdx ? 3 : 4
+        scale := not haConfirmsDown or not haLowerConfirmsDown ? math.min(baseScale + 1, 4) : strongHaDown and baseScale == 2 ? 1 : baseScale
+    else if twoNegative
+        scale := haConfirmsDown and haLowerConfirmsDown ? 3 : 4
+    scale
+
+// ============================================================================ End of Trend Meter Library v1.0.0 ============================================================================

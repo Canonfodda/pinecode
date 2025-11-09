@@ -1,0 +1,105 @@
+// ============================================================================
+// TREND METER 1-9 EXAMPLE - Using TrendMeterLib Library
+// ============================================================================
+//
+// VERSION:      1.0.0
+// CREATED:      2025-11-09
+// MODIFIED:     2025-11-09
+// AUTHOR:       Canonfodda/Claude Code
+// REPOSITORY:   pinecode
+//
+// DESCRIPTION:
+//   Example indicator demonstrating usage of TrendMeterLib library.
+//   Provides full UI with inputs, plotting, and alerts for the 1-9 trend scale.
+//
+// LIBRARY:
+//   Uses TrendMeterLib for all calculation logic
+//
+// FEATURES:
+//   - 3 selectable Trend Meters (MACD, RSI, Mom/Dad, Trend Candles, etc.)
+//   - ADX-based strength classification (Very Strong, Strong, Weak, Very Weak)
+//   - Dual Heikin Ashi confirmation (parent + lower timeframe)
+//   - Parent timeframe selector (1 minute to 7 days)
+//   - Minimal dot visualization in separate panel
+//   - Alert conditions for all scale levels and zone entries
+//
+// SCALE:
+//   9 = Very Strong Long    |  1 = Very Strong Short
+//   8 = Strong Long         |  2 = Strong Short
+//   7 = Weak Long           |  3 = Weak Short
+//   6 = Very Weak Long      |  4 = Very Weak Short
+//   5 = No Trend (neutral)
+//
+// CHANGELOG:
+//   1.0.0 - 2025-11-09 - Initial release using TrendMeterLib
+//
+// ============================================================================
+
+//@version=6
+indicator("Trend Meter 1-9 (Library Example)", overlay=false)
+
+// ===== IMPORT LIBRARY =====
+import Canonfodda/TrendMeterLib/1 as tm
+
+// ===== INPUT PARAMETERS =====
+// Timeframe Selection
+parentTimeframe = input.timeframe("", "Parent Timeframe", tooltip="Select timeframe for analysis (empty = chart timeframe)", group="Timeframe")
+
+// Trend Meter Selections
+trendMeter1 = input.string("MACD Crossover - Fast - 8, 21, 5", "Trend Meter 1", options=["MACD Crossover - 12, 26, 9", "MACD Crossover - Fast - 8, 21, 5", "Mom Dad Cross (Top Dog Trading)", "RSI Signal Line Cross - RSI 13, Sig 21", "RSI 13: > or < 50", "RSI 5: > or < 50", "Trend Candles"], group="Trend Meters")
+
+trendMeter2 = input.string("RSI 13: > or < 50", "Trend Meter 2", options=["MACD Crossover - 12, 26, 9", "MACD Crossover - Fast - 8, 21, 5", "Mom Dad Cross (Top Dog Trading)", "RSI Signal Line Cross - RSI 13, Sig 21", "RSI 13: > or < 50", "RSI 5: > or < 50", "Trend Candles"], group="Trend Meters")
+
+trendMeter3 = input.string("RSI 5: > or < 50", "Trend Meter 3", options=["MACD Crossover - 12, 26, 9", "MACD Crossover - Fast - 8, 21, 5", "Mom Dad Cross (Top Dog Trading)", "RSI Signal Line Cross - RSI 13, Sig 21", "RSI 13: > or < 50", "RSI 5: > or < 50", "Trend Candles"], group="Trend Meters")
+
+// ADX for Strength
+adxLength = input.int(14, "ADX Length", minval=1, group="Strength Settings")
+veryStrongAdx = input.float(40, "Very Strong ADX", minval=1, group="Strength Settings")
+strongAdx = input.float(30, "Strong ADX", minval=1, group="Strength Settings")
+weakAdx = input.float(20, "Weak ADX", minval=1, group="Strength Settings")
+
+// Heikin Ashi Confirmation
+useHeikinAshi = input.bool(true, "Use Heikin Ashi Confirmation", tooltip="Add HA candle trend confirmation for stronger signals", group="Heikin Ashi")
+useLowerTfHa = input.bool(true, "Use Lower Timeframe HA", tooltip="Analyze HA candles on lower timeframe for more detail", group="Heikin Ashi")
+lowerTfDivisor = input.int(3, "Lower Timeframe Divisor", minval=2, maxval=10, tooltip="Divide current timeframe by this (3 = 1/3 of parent TF)", group="Heikin Ashi")
+
+// ===== TIMEFRAME SETUP =====
+effectiveTimeframe = parentTimeframe == "" ? timeframe.period : parentTimeframe
+lowerTf = tm.getLowerTimeframe(effectiveTimeframe, lowerTfDivisor)
+
+// ===== CALCULATE METER RESULTS ON PARENT TIMEFRAME =====
+meter1Result = request.security(syminfo.tickerid, effectiveTimeframe, tm.getMeterResult(trendMeter1))
+meter2Result = request.security(syminfo.tickerid, effectiveTimeframe, tm.getMeterResult(trendMeter2))
+meter3Result = request.security(syminfo.tickerid, effectiveTimeframe, tm.getMeterResult(trendMeter3))
+
+// ===== ADX FOR STRENGTH ON PARENT TIMEFRAME =====
+[diPlus, diMinus, adx] = request.security(syminfo.tickerid, effectiveTimeframe, ta.dmi(adxLength, adxLength))
+
+// ===== HEIKIN ASHI CONFIRMATION =====
+haStrength = useHeikinAshi ? tm.calcHaTrendStrength(effectiveTimeframe, effectiveTimeframe) : 0
+haLowerStrength = useLowerTfHa ? tm.calcHaTrendStrength(lowerTf, lowerTf) : 0
+
+// ===== CALCULATE TREND SCALE =====
+int trendScale = tm.calculateTrendScale(meter1Result, meter2Result, meter3Result, adx, veryStrongAdx, strongAdx, weakAdx, haStrength, haLowerStrength, useHeikinAshi, useLowerTfHa)
+
+// ===== VISUAL DISPLAY - MINIMAL DOTS =====
+plot(trendScale == 1 ? 1 : na, "Scale 1 - Very Strong Short", color=color.new(color.red, 0), style=plot.style_circles, linewidth=4)
+plot(trendScale == 2 ? 1 : na, "Scale 2 - Strong Short", color=color.new(color.red, 30), style=plot.style_circles, linewidth=4)
+plot(trendScale == 3 ? 1 : na, "Scale 3 - Weak Short", color=color.new(color.orange, 0), style=plot.style_circles, linewidth=4)
+plot(trendScale == 4 ? 1 : na, "Scale 4 - Very Weak Short", color=color.new(color.orange, 40), style=plot.style_circles, linewidth=4)
+plot(trendScale == 5 ? 1 : na, "Scale 5 - No Trend", color=color.new(color.gray, 0), style=plot.style_circles, linewidth=4)
+plot(trendScale == 6 ? 1 : na, "Scale 6 - Very Weak Long", color=color.new(color.lime, 40), style=plot.style_circles, linewidth=4)
+plot(trendScale == 7 ? 1 : na, "Scale 7 - Weak Long", color=color.new(color.lime, 0), style=plot.style_circles, linewidth=4)
+plot(trendScale == 8 ? 1 : na, "Scale 8 - Strong Long", color=color.new(color.green, 30), style=plot.style_circles, linewidth=4)
+plot(trendScale == 9 ? 1 : na, "Scale 9 - Very Strong Long", color=color.new(color.green, 0), style=plot.style_circles, linewidth=4)
+
+// ===== ALERTS =====
+alertcondition(trendScale == 9 and trendScale[1] != 9, title="Scale 9 - Very Strong Long", message="Trend meter reached 9 - Very Strong Long")
+alertcondition(trendScale == 8 and trendScale[1] != 8, title="Scale 8 - Strong Long", message="Trend meter reached 8 - Strong Long")
+alertcondition(trendScale == 1 and trendScale[1] != 1, title="Scale 1 - Very Strong Short", message="Trend meter reached 1 - Very Strong Short")
+alertcondition(trendScale == 2 and trendScale[1] != 2, title="Scale 2 - Strong Short", message="Trend meter reached 2 - Strong Short")
+alertcondition(trendScale == 5 and trendScale[1] != 5, title="Scale 5 - No Trend", message="Trend meter reached 5 - No Trend")
+alertcondition(trendScale >= 7 and trendScale[1] < 7, title="Bullish Zone Entry", message="Trend meter entered bullish zone")
+alertcondition(trendScale <= 3 and trendScale[1] > 3, title="Bearish Zone Entry", message="Trend meter entered bearish zone")
+
+// ============================================================================ End of Trend Meter Example v1.0.0 ============================================================================
