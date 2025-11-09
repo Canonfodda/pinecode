@@ -149,8 +149,8 @@ htfTimeframe = timeframe.period == "1" ? str.tostring(htfMultiplier) :
                timeframe.period == "240" ? str.tostring(240 * htfMultiplier) :
                timeframe.period == "D" ? "W" : "M"
 
-htfHmaFast = useHigherTimeframe ? request.security(syminfo.tickerid, htfTimeframe, hma(close, hmaFastLength)) : hmaFast
-htfHmaSlow = useHigherTimeframe ? request.security(syminfo.tickerid, htfTimeframe, hma(close, hmaSlowLength)) : hmaSlow
+htfHmaFast = useHigherTimeframe ? request.security(syminfo.tickerid, htfTimeframe, hma(close, hmaFastLength)) : regularHmaFast
+htfHmaSlow = useHigherTimeframe ? request.security(syminfo.tickerid, htfTimeframe, hma(close, hmaSlowLength)) : regularHmaSlow
 htfTrendUp = htfHmaFast > htfHmaSlow
 htfTrendDown = htfHmaFast < htfHmaSlow
 
