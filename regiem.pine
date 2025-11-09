@@ -23,14 +23,6 @@ volumeSpikeMultiplier = input.float(2.0, "Volume Spike Multiplier", minval=1.0)
 // Ranging Detection
 rangingVolatilityThreshold = input.float(0.5, "Ranging Volatility Threshold", minval=0.1, maxval=2.0)
 
-// Display Settings
-showVolumeSpikeBackground = input.bool(true, "Show Volume Spike Background", group="Regime Backgrounds")
-showTrendLongBackground = input.bool(true, "Show Trend Long Background", group="Regime Backgrounds")
-showTrendShortBackground = input.bool(true, "Show Trend Short Background", group="Regime Backgrounds")
-showRetracementBackground = input.bool(true, "Show Retracement Background", group="Regime Backgrounds")
-showRangingBackground = input.bool(true, "Show Ranging Background", group="Regime Backgrounds")
-showTransitioningBackground = input.bool(true, "Show Transitioning Background", group="Regime Backgrounds")
-
 // ===== INDICATOR CALCULATIONS =====
 // Moving Averages
 emaShort = ta.ema(close, emaShortLength)
@@ -78,32 +70,25 @@ isRanging = adx < adxThreshold and volatilityRatio < rangingVolatilityThreshold 
 // ===== REGIME ASSIGNMENT =====
 string regime = "Undefined"
 color regimeColor = color.gray
-bool showBackground = false
 
 if isVolumeSpike
     regime := "Volume Spike"
     regimeColor := color.purple
-    showBackground := showVolumeSpikeBackground
 else if isTrendLong
     regime := "Trend Long"
     regimeColor := color.green
-    showBackground := showTrendLongBackground
 else if isTrendShort
     regime := "Trend Short"
     regimeColor := color.red
-    showBackground := showTrendShortBackground
 else if isRetracement
     regime := "Retracement"
     regimeColor := color.orange
-    showBackground := showRetracementBackground
 else if isRanging
     regime := "Ranging"
     regimeColor := color.blue
-    showBackground := showRangingBackground
 else
     regime := "Transitioning"
     regimeColor := color.gray
-    showBackground := showTransitioningBackground
 
 // ===== VISUAL DISPLAY =====
 // Plot EMAs
@@ -111,8 +96,8 @@ plot(emaShort, "EMA Short", color=color.new(color.yellow, 0), linewidth=1)
 plot(emaMedium, "EMA Medium", color=color.new(color.orange, 0), linewidth=1)
 plot(emaLong, "EMA Long", color=color.new(color.white, 0), linewidth=2)
 
-// Background Color based on Regime
-bgcolor(showBackground ? color.new(regimeColor, 90) : na, title="Regime Background")
+// Regime Indicator - Horizontal dots line
+plot(low - (high - low) * 0.02, "Regime Indicator", color=regimeColor, style=plot.style_circles, linewidth=3)
 
 // Regime Label
 var label regimeLabel = na
@@ -127,20 +112,7 @@ regimeLabel := label.new(
      size=size.normal
  )
 
-// ===== ADDITIONAL INDICATORS =====
-// Plot ADX in separate pane
-plot(adx, "ADX", color=color.blue, display=display.none)
-hline(adxThreshold, "ADX Threshold", color=color.gray, linestyle=hline.style_dashed, display=display.none)
-
-// Plot RSI in separate pane
-plot(rsi, "RSI", color=color.yellow, display=display.none)
-hline(rsiOverbought, "RSI Overbought", color=color.red, linestyle=hline.style_dashed, display=display.none)
-hline(rsiOversold, "RSI Oversold", color=color.green, linestyle=hline.style_dashed, display=display.none)
-
-// Volume Spike Markers
-plotshape(isVolumeSpike, "Volume Spike", shape.triangleup, location.belowbar, color.purple, size=size.small)
-
-// Alerts
+// ===== ALERTS =====
 alertcondition(regime != regime[1], title="Regime Change", message="Regime changed to: {{regime}}")
 alertcondition(isVolumeSpike, title="Volume Spike", message="Volume Spike detected!")
 alertcondition(isTrendLong and regime[1] != "Trend Long", title="Trend Long", message="Trend Long regime detected")
