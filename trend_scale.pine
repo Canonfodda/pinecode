@@ -1,0 +1,188 @@
+//@version=6
+indicator("Trend Scale 1-9", overlay=false)
+
+// ===== INPUT PARAMETERS =====
+// Mode Selection
+useAutoCalibration = input.bool(true, "Auto-Calibration Mode", tooltip="Automatically determine optimal settings based on chart characteristics", group="Mode")
+
+// Manual Settings (used when Auto-Calibration is off)
+manualHmaFast = input.int(9, "Fast HMA Length", minval=1, group="Manual Settings")
+manualHmaSlow = input.int(21, "Slow HMA Length", minval=1, group="Manual Settings")
+manualAdxLength = input.int(14, "ADX Length", minval=1, group="Manual Settings")
+manualVeryStrongThreshold = input.float(40, "Very Strong Trend ADX", minval=1, group="Manual Settings")
+manualStrongThreshold = input.float(30, "Strong Trend ADX", minval=1, group="Manual Settings")
+manualWeakThreshold = input.float(20, "Weak Trend ADX", minval=1, group="Manual Settings")
+manualVeryWeakThreshold = input.float(10, "Very Weak Trend ADX", minval=1, group="Manual Settings")
+
+// Multi-Timeframe Settings
+useHigherTimeframe = input.bool(true, "Use Higher Timeframe Confirmation", group="Multi-Timeframe")
+htfMultiplier = input.int(3, "Higher Timeframe Multiplier", minval=2, maxval=10, tooltip="Multiplier for higher timeframe", group="Multi-Timeframe")
+
+// Auto-Calibration Lookback
+calibrationBars = input.int(500, "Calibration Sample Size", minval=100, maxval=2000, tooltip="Number of bars to analyze for auto-calibration", group="Mode")
+
+// ===== DUAL CANDLE DATA =====
+// Regular candles
+regularClose = close
+
+// Heikin Ashi candles
+haClose = request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, close)
+
+// ===== HULL MOVING AVERAGE FUNCTION =====
+hma(src, length) =>
+    wma1 = ta.wma(src, length / 2)
+    wma2 = ta.wma(src, length)
+    ta.wma(2 * wma1 - wma2, int(math.sqrt(length)))
+
+// ===== AUTO-CALIBRATION LOGIC =====
+var float autoHmaFast = 9.0
+var float autoHmaSlow = 21.0
+var float autoVeryStrongThreshold = 40.0
+var float autoStrongThreshold = 30.0
+var float autoWeakThreshold = 20.0
+var float autoVeryWeakThreshold = 10.0
+var bool calibrationComplete = false
+
+actualCalibrationBars = math.min(calibrationBars, bar_index)
+
+if useAutoCalibration and not calibrationComplete and bar_index >= 100
+    lookbackBars = actualCalibrationBars
+    avgAtr = ta.sma(ta.atr(14), math.min(lookbackBars, 200))
+    avgRange = ta.sma(high - low, math.min(lookbackBars, 200))
+    volatilityRatio = avgAtr / avgRange
+
+    if volatilityRatio > 1.5
+        autoHmaFast := 12
+        autoHmaSlow := 26
+    else if volatilityRatio > 1.0
+        autoHmaFast := 9
+        autoHmaSlow := 21
+    else
+        autoHmaFast := 7
+        autoHmaSlow := 16
+
+    [diP, diM, currentAdx] = ta.dmi(14, 14)
+    avgAdx = ta.sma(currentAdx, math.min(lookbackBars, 200))
+
+    if avgAdx < 20
+        autoVeryStrongThreshold := 35
+        autoStrongThreshold := 25
+        autoWeakThreshold := 15
+        autoVeryWeakThreshold := 8
+    else if avgAdx < 30
+        autoVeryStrongThreshold := 40
+        autoStrongThreshold := 30
+        autoWeakThreshold := 20
+        autoVeryWeakThreshold := 10
+    else
+        autoVeryStrongThreshold := 45
+        autoStrongThreshold := 35
+        autoWeakThreshold := 25
+        autoVeryWeakThreshold := 12
+
+    calibrationComplete := true
+
+hmaFastLength = useAutoCalibration ? int(autoHmaFast) : manualHmaFast
+hmaSlowLength = useAutoCalibration ? int(autoHmaSlow) : manualHmaSlow
+adxLength = manualAdxLength
+veryStrongThreshold = useAutoCalibration ? autoVeryStrongThreshold : manualVeryStrongThreshold
+strongThreshold = useAutoCalibration ? autoStrongThreshold : manualStrongThreshold
+weakThreshold = useAutoCalibration ? autoWeakThreshold : manualWeakThreshold
+veryWeakThreshold = useAutoCalibration ? autoVeryWeakThreshold : manualVeryWeakThreshold
+
+// ===== INDICATOR CALCULATIONS =====
+// Regular candles HMAs
+regularHmaFast = hma(regularClose, hmaFastLength)
+regularHmaSlow = hma(regularClose, hmaSlowLength)
+
+// Heikin Ashi candles HMAs
+haHmaFast = hma(haClose, hmaFastLength)
+haHmaSlow = hma(haClose, hmaSlowLength)
+
+// ADX for trend strength
+[diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
+
+// Trend direction from both candle types
+regularTrendUp = regularHmaFast > regularHmaSlow
+regularTrendDown = regularHmaFast < regularHmaSlow
+
+haTrendUp = haHmaFast > haHmaSlow
+haTrendDown = haHmaFast < haHmaSlow
+
+// Combined trend requires agreement from BOTH candle types
+bothAgreeUp = regularTrendUp and haTrendUp
+bothAgreeDown = regularTrendDown and haTrendDown
+
+// ===== HIGHER TIMEFRAME CONFIRMATION =====
+htfTimeframe = timeframe.period == "1" ? str.tostring(htfMultiplier) : timeframe.period == "5" ? str.tostring(5 * htfMultiplier) : timeframe.period == "15" ? str.tostring(15 * htfMultiplier) : timeframe.period == "60" ? str.tostring(60 * htfMultiplier) : timeframe.period == "240" ? str.tostring(240 * htfMultiplier) : timeframe.period == "D" ? "W" : "M"
+
+htfHmaFast = useHigherTimeframe ? request.security(syminfo.tickerid, htfTimeframe, hma(close, hmaFastLength)) : regularHmaFast
+htfHmaSlow = useHigherTimeframe ? request.security(syminfo.tickerid, htfTimeframe, hma(close, hmaSlowLength)) : regularHmaSlow
+htfTrendUp = htfHmaFast > htfHmaSlow
+htfTrendDown = htfHmaFast < htfHmaSlow
+
+// Higher timeframe confirmation adds strength
+htfConfirmsUp = bothAgreeUp and htfTrendUp
+htfConfirmsDown = bothAgreeDown and htfTrendDown
+
+// ===== TREND SCALE CALCULATION (1-9) =====
+// Scale: 1=Very Strong Short, 5=No Trend, 9=Very Strong Long
+
+int trendScale = 5
+
+// Determine direction and strength
+if bothAgreeUp
+    if adx >= veryStrongThreshold and htfConfirmsUp
+        trendScale := 9
+    else if adx >= strongThreshold and htfConfirmsUp
+        trendScale := 8
+    else if adx >= strongThreshold
+        trendScale := 8
+    else if adx >= weakThreshold
+        trendScale := 7
+    else if adx >= veryWeakThreshold
+        trendScale := 6
+    else
+        trendScale := 5
+else if bothAgreeDown
+    if adx >= veryStrongThreshold and htfConfirmsDown
+        trendScale := 1
+    else if adx >= strongThreshold and htfConfirmsDown
+        trendScale := 2
+    else if adx >= strongThreshold
+        trendScale := 2
+    else if adx >= weakThreshold
+        trendScale := 3
+    else if adx >= veryWeakThreshold
+        trendScale := 4
+    else
+        trendScale := 5
+else
+    trendScale := 5
+
+// ===== VISUAL DISPLAY =====
+// Plot the numeric scale
+plot(trendScale, "Trend Meter", color=color.white, linewidth=2, style=plot.style_line)
+
+// Plot scale reference lines
+hline(1, "Very Strong Short", color=color.new(color.red, 70), linestyle=hline.style_solid)
+hline(2, "Strong Short", color=color.new(color.red, 80), linestyle=hline.style_dotted)
+hline(3, "Weak Short", color=color.new(color.orange, 80), linestyle=hline.style_dotted)
+hline(4, "Very Weak Short", color=color.new(color.orange, 90), linestyle=hline.style_dotted)
+hline(5, "No Trend", color=color.new(color.gray, 60), linestyle=hline.style_solid)
+hline(6, "Very Weak Long", color=color.new(color.lime, 90), linestyle=hline.style_dotted)
+hline(7, "Weak Long", color=color.new(color.lime, 80), linestyle=hline.style_dotted)
+hline(8, "Strong Long", color=color.new(color.green, 80), linestyle=hline.style_dotted)
+hline(9, "Very Strong Long", color=color.new(color.green, 70), linestyle=hline.style_solid)
+
+// Color the background based on trend zone
+bgcolor(trendScale == 1 ? color.new(color.red, 92) : trendScale == 2 ? color.new(color.red, 95) : trendScale == 3 ? color.new(color.orange, 95) : trendScale == 4 ? color.new(color.orange, 97) : trendScale == 5 ? color.new(color.gray, 97) : trendScale == 6 ? color.new(color.lime, 97) : trendScale == 7 ? color.new(color.lime, 95) : trendScale == 8 ? color.new(color.green, 95) : color.new(color.green, 92))
+
+// ===== ALERTS =====
+alertcondition(trendScale == 9 and trendScale[1] != 9, title="Very Strong Long", message="Trend scale reached 9 - Very Strong Long")
+alertcondition(trendScale == 8 and trendScale[1] != 8, title="Strong Long", message="Trend scale reached 8 - Strong Long")
+alertcondition(trendScale == 1 and trendScale[1] != 1, title="Very Strong Short", message="Trend scale reached 1 - Very Strong Short")
+alertcondition(trendScale == 2 and trendScale[1] != 2, title="Strong Short", message="Trend scale reached 2 - Strong Short")
+alertcondition(trendScale == 5 and trendScale[1] != 5, title="No Trend", message="Trend scale reached 5 - No Trend")
+alertcondition(trendScale >= 7 and trendScale[1] < 7, title="Bullish Zone", message="Trend scale entered bullish zone")
+alertcondition(trendScale <= 3 and trendScale[1] > 3, title="Bearish Zone", message="Trend scale entered bearish zone")
