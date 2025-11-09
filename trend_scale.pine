@@ -1,3 +1,38 @@
+// ============================================================================
+// TREND METER 1-9 - Multi-Timeframe Trend Strength Indicator
+// ============================================================================
+//
+// VERSION:      1.0.0
+// CREATED:      2025-11-09
+// MODIFIED:     2025-11-09
+// AUTHOR:       Canonfodda/Claude Code
+// REPOSITORY:   pinecode
+//
+// DESCRIPTION:
+//   Numeric trend scale (1-9) based on configurable trend meters with ADX
+//   strength measurement and Heikin Ashi confirmation across multiple timeframes.
+//   Library-ready architecture for export and reuse.
+//
+// FEATURES:
+//   - 3 selectable Trend Meters (MACD, RSI, Mom/Dad, Trend Candles, etc.)
+//   - ADX-based strength classification (Very Strong, Strong, Weak, Very Weak)
+//   - Dual Heikin Ashi confirmation (parent + lower timeframe)
+//   - Parent timeframe selector (1 minute to 7 days)
+//   - Minimal dot visualization in separate panel
+//   - All calculation logic in exportable functions
+//
+// SCALE:
+//   9 = Very Strong Long    |  1 = Very Strong Short
+//   8 = Strong Long         |  2 = Strong Short
+//   7 = Weak Long           |  3 = Weak Short
+//   6 = Very Weak Long      |  4 = Very Weak Short
+//   5 = No Trend (neutral)
+//
+// CHANGELOG:
+//   1.0.0 - 2025-11-09 - Initial release with full MTF and HA support
+//
+// ============================================================================
+
 //@version=6
 indicator("Trend Meter 1-9", overlay=false)
 
@@ -183,3 +218,5 @@ alertcondition(trendScale == 2 and trendScale[1] != 2, title="Scale 2 - Strong S
 alertcondition(trendScale == 5 and trendScale[1] != 5, title="Scale 5 - No Trend", message="Trend meter reached 5 - No Trend")
 alertcondition(trendScale >= 7 and trendScale[1] < 7, title="Bullish Zone Entry", message="Trend meter entered bullish zone")
 alertcondition(trendScale <= 3 and trendScale[1] > 3, title="Bearish Zone Entry", message="Trend meter entered bearish zone")
+
+// ============================================================================ End of Trend Meter 1-9 v1.0.0 ============================================================================
