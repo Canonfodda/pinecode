@@ -1,0 +1,157 @@
+//@version=6
+indicator("6-State Trend Detector", overlay=false)
+
+// ===== INPUT PARAMETERS =====
+// Mode Selection
+useAutoCalibration = input.bool(true, "Auto-Calibration Mode", tooltip="Automatically determine optimal settings based on chart characteristics", group="Mode")
+
+// Manual Settings (used when Auto-Calibration is off)
+manualHmaFast = input.int(9, "Fast HMA Length", minval=1, group="Manual Settings")
+manualHmaSlow = input.int(21, "Slow HMA Length", minval=1, group="Manual Settings")
+manualAdxLength = input.int(14, "ADX Length", minval=1, group="Manual Settings")
+manualStrongThreshold = input.float(30, "Strong Trend ADX Threshold", minval=1, group="Manual Settings")
+manualWeakThreshold = input.float(20, "Weak Trend ADX Threshold", minval=1, group="Manual Settings")
+
+// Multi-Timeframe Settings
+useHigherTimeframe = input.bool(true, "Use Higher Timeframe Confirmation", group="Multi-Timeframe")
+htfMultiplier = input.int(3, "Higher Timeframe Multiplier", minval=2, maxval=10, tooltip="Multiplier for higher timeframe (3 = 3x current timeframe)", group="Multi-Timeframe")
+
+// Heikin Ashi Settings
+useHeikinAshi = input.bool(true, "Use Heikin Ashi for Trend Detection", tooltip="Use Heikin Ashi candles to smooth price action", group="Heikin Ashi")
+
+// Auto-Calibration Lookback
+calibrationBars = input.int(500, "Calibration Sample Size", minval=100, maxval=2000, tooltip="Number of bars to analyze for auto-calibration", group="Mode")
+
+// ===== HEIKIN ASHI DATA =====
+haClose = useHeikinAshi ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, close) : close
+haOpen = useHeikinAshi ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, open) : open
+haHigh = useHeikinAshi ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, high) : high
+haLow = useHeikinAshi ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, low) : low
+
+// ===== HULL MOVING AVERAGE FUNCTION =====
+hma(src, length) =>
+    wma1 = ta.wma(src, length / 2)
+    wma2 = ta.wma(src, length)
+    ta.wma(2 * wma1 - wma2, int(math.sqrt(length)))
+
+// ===== AUTO-CALIBRATION LOGIC =====
+// Analyze market characteristics to determine optimal settings
+var float autoHmaFast = 9.0
+var float autoHmaSlow = 21.0
+var float autoStrongThreshold = 30.0
+var float autoWeakThreshold = 20.0
+
+if useAutoCalibration and bar_index == calibrationBars
+    // Calculate average volatility
+    avgAtr = ta.sma(ta.atr(14), calibrationBars)
+    avgRange = ta.sma(high - low, calibrationBars)
+    volatilityRatio = avgAtr / avgRange
+
+    // Calculate average price movement speed
+    priceChangeSum = 0.0
+    for i = 1 to calibrationBars
+        priceChangeSum += math.abs(close[i] - close[i+1])
+    avgPriceChange = priceChangeSum / calibrationBars
+
+    // Determine optimal HMA lengths based on volatility
+    // Higher volatility = longer HMAs to filter noise
+    // Lower volatility = shorter HMAs to catch moves faster
+    if volatilityRatio > 1.5
+        autoHmaFast := 12
+        autoHmaSlow := 26
+    else if volatilityRatio > 1.0
+        autoHmaFast := 9
+        autoHmaSlow := 21
+    else
+        autoHmaFast := 7
+        autoHmaSlow := 16
+
+    // Calculate ADX statistics to determine optimal thresholds
+    adxSum = 0.0
+    for i = 0 to calibrationBars
+        [diP, diM, adxVal] = ta.dmi(14, 14)
+        adxSum += adxVal
+    avgAdx = adxSum / calibrationBars
+
+    // Set thresholds based on average ADX
+    // If market typically has low ADX, lower the thresholds
+    if avgAdx < 20
+        autoStrongThreshold := 25
+        autoWeakThreshold := 15
+    else if avgAdx < 30
+        autoStrongThreshold := 30
+        autoWeakThreshold := 20
+    else
+        autoStrongThreshold := 35
+        autoWeakThreshold := 25
+
+// Use auto or manual settings
+hmaFastLength = useAutoCalibration ? int(autoHmaFast) : manualHmaFast
+hmaSlowLength = useAutoCalibration ? int(autoHmaSlow) : manualHmaSlow
+adxLength = manualAdxLength
+strongThreshold = useAutoCalibration ? autoStrongThreshold : manualStrongThreshold
+weakThreshold = useAutoCalibration ? autoWeakThreshold : manualWeakThreshold
+
+// ===== INDICATOR CALCULATIONS =====
+// HMA Calculations on Heikin Ashi or regular candles
+hmaFast = hma(haClose, hmaFastLength)
+hmaSlow = hma(haClose, hmaSlowLength)
+
+// ADX for trend strength
+[diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
+
+// Trend direction from HMA
+trendUp = hmaFast > hmaSlow
+trendDown = hmaFast < hmaSlow
+
+// Trend strength classification
+strongTrend = adx >= strongThreshold
+weakTrend = adx >= weakThreshold and adx < strongThreshold
+noTrend = adx < weakThreshold
+
+// ===== HIGHER TIMEFRAME CONFIRMATION =====
+htfTimeframe = timeframe.period == "1" ? str.tostring(htfMultiplier) :
+               timeframe.period == "5" ? str.tostring(5 * htfMultiplier) :
+               timeframe.period == "15" ? str.tostring(15 * htfMultiplier) :
+               timeframe.period == "60" ? str.tostring(60 * htfMultiplier) :
+               timeframe.period == "240" ? str.tostring(240 * htfMultiplier) :
+               timeframe.period == "D" ? "W" : "M"
+
+htfHmaFast = useHigherTimeframe ? request.security(syminfo.tickerid, htfTimeframe, hma(close, hmaFastLength)) : hmaFast
+htfHmaSlow = useHigherTimeframe ? request.security(syminfo.tickerid, htfTimeframe, hma(close, hmaSlowLength)) : hmaSlow
+htfTrendUp = htfHmaFast > htfHmaSlow
+htfTrendDown = htfHmaFast < htfHmaSlow
+
+// Combine current timeframe and higher timeframe
+confirmedTrendUp = useHigherTimeframe ? (trendUp and htfTrendUp) : trendUp
+confirmedTrendDown = useHigherTimeframe ? (trendDown and htfTrendDown) : trendDown
+
+// ===== 6-STATE REGIME DETECTION =====
+string trendState = "No Trend"
+
+if confirmedTrendUp and strongTrend
+    trendState := "Strong Trend Long"
+else if confirmedTrendUp and weakTrend
+    trendState := "Weak Trend Long"
+else if confirmedTrendDown and strongTrend
+    trendState := "Strong Trend Short"
+else if confirmedTrendDown and weakTrend
+    trendState := "Weak Trend Short"
+else if noTrend
+    trendState := "No Trend"
+else
+    trendState := "Transitioning"
+
+// ===== VISUAL DISPLAY =====
+// Each state gets its own plot entry in Style panel for customization
+plot(trendState == "Strong Trend Long" ? 1 : na, "Strong Trend Long", color=color.new(color.green, 0), style=plot.style_circles, linewidth=4)
+plot(trendState == "Weak Trend Long" ? 1 : na, "Weak Trend Long", color=color.new(color.lime, 0), style=plot.style_circles, linewidth=4)
+plot(trendState == "No Trend" ? 1 : na, "No Trend", color=color.new(color.gray, 0), style=plot.style_circles, linewidth=4)
+plot(trendState == "Weak Trend Short" ? 1 : na, "Weak Trend Short", color=color.new(color.orange, 0), style=plot.style_circles, linewidth=4)
+plot(trendState == "Strong Trend Short" ? 1 : na, "Strong Trend Short", color=color.new(color.red, 0), style=plot.style_circles, linewidth=4)
+plot(trendState == "Transitioning" ? 1 : na, "Transitioning", color=color.new(color.yellow, 0), style=plot.style_circles, linewidth=4)
+
+// ===== ALERTS =====
+alertcondition(trendState != trendState[1], title="Trend State Change", message="Trend state changed to: " + trendState)
+alertcondition(trendState == "Strong Trend Long" and trendState[1] != "Strong Trend Long", title="Strong Trend Long", message="Strong uptrend detected")
+alertcondition(trendState == "Strong Trend Short" and trendState[1] != "Strong Trend Short", title="Strong Trend Short", message="Strong downtrend detected")
