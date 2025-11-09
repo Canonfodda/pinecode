@@ -23,6 +23,14 @@ volumeSpikeMultiplier = input.float(2.0, "Volume Spike Multiplier", minval=1.0)
 // Ranging Detection
 rangingVolatilityThreshold = input.float(0.5, "Ranging Volatility Threshold", minval=0.1, maxval=2.0)
 
+// Regime Colors
+colorVolumeSpike = input.color(color.purple, "Volume Spike", group="Regime Colors")
+colorTrendLong = input.color(color.green, "Trend Long", group="Regime Colors")
+colorTrendShort = input.color(color.red, "Trend Short", group="Regime Colors")
+colorRetracement = input.color(color.orange, "Retracement", group="Regime Colors")
+colorRanging = input.color(color.blue, "Ranging", group="Regime Colors")
+colorTransitioning = input.color(color.gray, "Transitioning", group="Regime Colors")
+
 // ===== INDICATOR CALCULATIONS =====
 // Moving Averages
 emaShort = ta.ema(close, emaShortLength)
@@ -69,26 +77,26 @@ isRanging = adx < adxThreshold and volatilityRatio < rangingVolatilityThreshold 
 
 // ===== REGIME ASSIGNMENT =====
 string regime = "Undefined"
-color regimeColor = color.gray
+color regimeColor = colorTransitioning
 
 if isVolumeSpike
     regime := "Volume Spike"
-    regimeColor := color.purple
+    regimeColor := colorVolumeSpike
 else if isTrendLong
     regime := "Trend Long"
-    regimeColor := color.green
+    regimeColor := colorTrendLong
 else if isTrendShort
     regime := "Trend Short"
-    regimeColor := color.red
+    regimeColor := colorTrendShort
 else if isRetracement
     regime := "Retracement"
-    regimeColor := color.orange
+    regimeColor := colorRetracement
 else if isRanging
     regime := "Ranging"
-    regimeColor := color.blue
+    regimeColor := colorRanging
 else
     regime := "Transitioning"
-    regimeColor := color.gray
+    regimeColor := colorTransitioning
 
 // ===== VISUAL DISPLAY =====
 // Regime Indicator - Horizontal dots in separate panel
