@@ -2,6 +2,9 @@
 indicator("Trend Meter 1-9", overlay=false)
 
 // ===== INPUT PARAMETERS =====
+// Timeframe Selection
+parentTimeframe = input.timeframe("", "Parent Timeframe", tooltip="Select timeframe for analysis (empty = chart timeframe)", group="Timeframe")
+
 // Trend Meter Selections
 trendMeter1 = input.string("MACD Crossover - Fast - 8, 21, 5", "Trend Meter 1", options=["MACD Crossover - 12, 26, 9", "MACD Crossover - Fast - 8, 21, 5", "Mom Dad Cross (Top Dog Trading)", "RSI Signal Line Cross - RSI 13, Sig 21", "RSI 13: > or < 50", "RSI 5: > or < 50", "Trend Candles"], group="Trend Meters")
 
@@ -88,10 +91,12 @@ getMeterResult(meterChoice) =>
         result := calcTrendCandles()
     result
 
-// Get lower timeframe string
-getLowerTimeframe(currentTf, divisor) =>
-    tfMinutes = timeframe.in_seconds() / 60
-    lowerTfMinutes = tfMinutes / divisor
+// Get lower timeframe string from parent timeframe
+getLowerTimeframe(parentTf, divisor) =>
+    // Get parent timeframe in seconds, divide by divisor
+    parentTfSeconds = timeframe.in_seconds(parentTf)
+    lowerTfSeconds = parentTfSeconds / divisor
+    lowerTfMinutes = lowerTfSeconds / 60
     lowerTfMinutes >= 1 ? str.tostring(int(lowerTfMinutes)) : "1"
 
 // Calculate Heikin Ashi trend strength
@@ -134,19 +139,26 @@ calculateTrendScale(meter1Result, meter2Result, meter3Result, adxValue, vsAdx, s
         scale := haConfirmsDown and haLowerConfirmsDown ? 3 : 4
     scale
 
-// ===== CALCULATE METER RESULTS =====
-meter1Result = getMeterResult(trendMeter1)
-meter2Result = getMeterResult(trendMeter2)
-meter3Result = getMeterResult(trendMeter3)
+// ===== TIMEFRAME SETUP =====
+// Use selected parent timeframe, or chart timeframe if empty
+effectiveTimeframe = parentTimeframe == "" ? timeframe.period : parentTimeframe
+lowerTf = getLowerTimeframe(effectiveTimeframe, lowerTfDivisor)
 
-// ===== ADX FOR STRENGTH =====
-[diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
+// ===== FETCH DATA FROM SELECTED TIMEFRAME =====
+// Request OHLCV data from parent timeframe for calculations
+[tfOpen, tfHigh, tfLow, tfClose, tfVolume] = request.security(syminfo.tickerid, effectiveTimeframe, [open, high, low, close, volume])
+
+// ===== CALCULATE METER RESULTS ON PARENT TIMEFRAME =====
+// Temporarily set close/open/high/low for meter calculations
+meter1Result = request.security(syminfo.tickerid, effectiveTimeframe, getMeterResult(trendMeter1))
+meter2Result = request.security(syminfo.tickerid, effectiveTimeframe, getMeterResult(trendMeter2))
+meter3Result = request.security(syminfo.tickerid, effectiveTimeframe, getMeterResult(trendMeter3))
+
+// ===== ADX FOR STRENGTH ON PARENT TIMEFRAME =====
+[diPlus, diMinus, adx] = request.security(syminfo.tickerid, effectiveTimeframe, ta.dmi(adxLength, adxLength))
 
 // ===== HEIKIN ASHI CONFIRMATION =====
-currentTf = timeframe.period
-lowerTf = getLowerTimeframe(currentTf, lowerTfDivisor)
-
-haStrength = useHeikinAshi ? calcHaTrendStrength(currentTf, currentTf) : 0
+haStrength = useHeikinAshi ? calcHaTrendStrength(effectiveTimeframe, effectiveTimeframe) : 0
 haLowerStrength = useLowerTfHa ? calcHaTrendStrength(lowerTf, lowerTf) : 0
 
 // ===== CALCULATE TREND SCALE =====
