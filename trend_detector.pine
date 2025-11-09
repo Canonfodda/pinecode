@@ -16,17 +16,21 @@ manualWeakThreshold = input.float(20, "Weak Trend ADX Threshold", minval=1, grou
 useHigherTimeframe = input.bool(true, "Use Higher Timeframe Confirmation", group="Multi-Timeframe")
 htfMultiplier = input.int(3, "Higher Timeframe Multiplier", minval=2, maxval=10, tooltip="Multiplier for higher timeframe (3 = 3x current timeframe)", group="Multi-Timeframe")
 
-// Heikin Ashi Settings
-useHeikinAshi = input.bool(true, "Use Heikin Ashi for Trend Detection", tooltip="Use Heikin Ashi candles to smooth price action", group="Heikin Ashi")
-
 // Auto-Calibration Lookback
 calibrationBars = input.int(500, "Calibration Sample Size", minval=100, maxval=2000, tooltip="Number of bars to analyze for auto-calibration", group="Mode")
 
-// ===== HEIKIN ASHI DATA =====
-haClose = useHeikinAshi ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, close) : close
-haOpen = useHeikinAshi ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, open) : open
-haHigh = useHeikinAshi ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, high) : high
-haLow = useHeikinAshi ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, low) : low
+// ===== DUAL CANDLE DATA =====
+// Regular candles
+regularClose = close
+regularOpen = open
+regularHigh = high
+regularLow = low
+
+// Heikin Ashi candles
+haClose = request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, close)
+haOpen = request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, open)
+haHigh = request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, high)
+haLow = request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, low)
 
 // ===== HULL MOVING AVERAGE FUNCTION =====
 hma(src, length) =>
@@ -93,16 +97,28 @@ strongThreshold = useAutoCalibration ? autoStrongThreshold : manualStrongThresho
 weakThreshold = useAutoCalibration ? autoWeakThreshold : manualWeakThreshold
 
 // ===== INDICATOR CALCULATIONS =====
-// HMA Calculations on Heikin Ashi or regular candles
-hmaFast = hma(haClose, hmaFastLength)
-hmaSlow = hma(haClose, hmaSlowLength)
+// HMA Calculations on BOTH regular and Heikin Ashi candles
+// Regular candles HMAs
+regularHmaFast = hma(regularClose, hmaFastLength)
+regularHmaSlow = hma(regularClose, hmaSlowLength)
 
-// ADX for trend strength
+// Heikin Ashi candles HMAs
+haHmaFast = hma(haClose, hmaFastLength)
+haHmaSlow = hma(haClose, hmaSlowLength)
+
+// ADX for trend strength (use regular candles for ADX)
 [diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
 
-// Trend direction from HMA
-trendUp = hmaFast > hmaSlow
-trendDown = hmaFast < hmaSlow
+// Trend direction from both candle types
+regularTrendUp = regularHmaFast > regularHmaSlow
+regularTrendDown = regularHmaFast < regularHmaSlow
+
+haTrendUp = haHmaFast > haHmaSlow
+haTrendDown = haHmaFast < haHmaSlow
+
+// Combined trend requires agreement from BOTH candle types
+trendUp = regularTrendUp and haTrendUp
+trendDown = regularTrendDown and haTrendDown
 
 // Trend strength classification
 strongTrend = adx >= strongThreshold
