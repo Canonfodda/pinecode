@@ -23,6 +23,14 @@ volumeSpikeMultiplier = input.float(2.0, "Volume Spike Multiplier", minval=1.0)
 // Ranging Detection
 rangingVolatilityThreshold = input.float(0.5, "Ranging Volatility Threshold", minval=0.1, maxval=2.0)
 
+// Display Settings
+showVolumeSpikeBackground = input.bool(true, "Show Volume Spike Background", group="Regime Backgrounds")
+showTrendLongBackground = input.bool(true, "Show Trend Long Background", group="Regime Backgrounds")
+showTrendShortBackground = input.bool(true, "Show Trend Short Background", group="Regime Backgrounds")
+showRetracementBackground = input.bool(true, "Show Retracement Background", group="Regime Backgrounds")
+showRangingBackground = input.bool(true, "Show Ranging Background", group="Regime Backgrounds")
+showTransitioningBackground = input.bool(true, "Show Transitioning Background", group="Regime Backgrounds")
+
 // ===== INDICATOR CALCULATIONS =====
 // Moving Averages
 emaShort = ta.ema(close, emaShortLength)
@@ -70,25 +78,32 @@ isRanging = adx < adxThreshold and volatilityRatio < rangingVolatilityThreshold 
 // ===== REGIME ASSIGNMENT =====
 string regime = "Undefined"
 color regimeColor = color.gray
+bool showBackground = false
 
 if isVolumeSpike
     regime := "Volume Spike"
     regimeColor := color.purple
+    showBackground := showVolumeSpikeBackground
 else if isTrendLong
     regime := "Trend Long"
     regimeColor := color.green
+    showBackground := showTrendLongBackground
 else if isTrendShort
     regime := "Trend Short"
     regimeColor := color.red
+    showBackground := showTrendShortBackground
 else if isRetracement
     regime := "Retracement"
     regimeColor := color.orange
+    showBackground := showRetracementBackground
 else if isRanging
     regime := "Ranging"
     regimeColor := color.blue
+    showBackground := showRangingBackground
 else
     regime := "Transitioning"
     regimeColor := color.gray
+    showBackground := showTransitioningBackground
 
 // ===== VISUAL DISPLAY =====
 // Plot EMAs
@@ -97,7 +112,7 @@ plot(emaMedium, "EMA Medium", color=color.new(color.orange, 0), linewidth=1)
 plot(emaLong, "EMA Long", color=color.new(color.white, 0), linewidth=2)
 
 // Background Color based on Regime
-bgcolor(color.new(regimeColor, 90), title="Regime Background")
+bgcolor(showBackground ? color.new(regimeColor, 90) : na, title="Regime Background")
 
 // Regime Label
 var label regimeLabel = na
