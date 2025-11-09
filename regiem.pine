@@ -1,5 +1,5 @@
 //@version=6
-indicator("Crypto Regime Detector", overlay=true)
+indicator("Crypto Regime Detector", overlay=false)
 
 // ===== INPUT PARAMETERS =====
 // Trend Detection
@@ -91,26 +91,8 @@ else
     regimeColor := color.gray
 
 // ===== VISUAL DISPLAY =====
-// Plot EMAs
-plot(emaShort, "EMA Short", color=color.new(color.yellow, 0), linewidth=1)
-plot(emaMedium, "EMA Medium", color=color.new(color.orange, 0), linewidth=1)
-plot(emaLong, "EMA Long", color=color.new(color.white, 0), linewidth=2)
-
-// Regime Indicator - Horizontal dots line
-plot(low - (high - low) * 0.02, "Regime Indicator", color=regimeColor, style=plot.style_circles, linewidth=3)
-
-// Regime Label
-var label regimeLabel = na
-label.delete(regimeLabel)
-regimeLabel := label.new(
-     bar_index,
-     high,
-     text=regime + "\nADX: " + str.tostring(adx, "#.##") + "\nRSI: " + str.tostring(rsi, "#.##"),
-     style=label.style_label_down,
-     color=regimeColor,
-     textcolor=color.white,
-     size=size.normal
- )
+// Regime Indicator - Horizontal dots in separate panel
+plot(1, "Regime Indicator", color=regimeColor, style=plot.style_circles, linewidth=4)
 
 // ===== ALERTS =====
 alertcondition(regime != regime[1], title="Regime Change", message="Regime changed to: {{regime}}")
