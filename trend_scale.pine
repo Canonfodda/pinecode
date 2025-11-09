@@ -2,120 +2,116 @@
 indicator("Trend Meter 1-9", overlay=false)
 
 // ===== INPUT PARAMETERS =====
-useAutoCalibration = input.bool(true, "Auto-Calibration Mode", tooltip="Automatically determine optimal settings", group="Mode")
-calibrationBars = input.int(500, "Calibration Sample Size", minval=100, maxval=2000, group="Mode")
+// Trend Meter Selections
+trendMeter1 = input.string("MACD Crossover - Fast - 8, 21, 5", "Trend Meter 1", options=["MACD Crossover - 12, 26, 9", "MACD Crossover - Fast - 8, 21, 5", "Mom Dad Cross (Top Dog Trading)", "RSI Signal Line Cross - RSI 13, Sig 21", "RSI 13: > or < 50", "RSI 5: > or < 50", "Trend Candles"], group="Trend Meters")
 
-manualHmaFast = input.int(9, "Fast HMA Length", minval=1, group="Manual Settings")
-manualHmaSlow = input.int(21, "Slow HMA Length", minval=1, group="Manual Settings")
-manualAdxLength = input.int(14, "ADX Length", minval=1, group="Manual Settings")
-manualVeryStrongThreshold = input.float(40, "Very Strong Trend ADX", minval=1, group="Manual Settings")
-manualStrongThreshold = input.float(30, "Strong Trend ADX", minval=1, group="Manual Settings")
-manualWeakThreshold = input.float(20, "Weak Trend ADX", minval=1, group="Manual Settings")
-manualVeryWeakThreshold = input.float(10, "Very Weak Trend ADX", minval=1, group="Manual Settings")
+trendMeter2 = input.string("RSI 13: > or < 50", "Trend Meter 2", options=["MACD Crossover - 12, 26, 9", "MACD Crossover - Fast - 8, 21, 5", "Mom Dad Cross (Top Dog Trading)", "RSI Signal Line Cross - RSI 13, Sig 21", "RSI 13: > or < 50", "RSI 5: > or < 50", "Trend Candles"], group="Trend Meters")
 
-useHigherTimeframe = input.bool(true, "Use Higher Timeframe Confirmation", group="Multi-Timeframe")
-htfMultiplier = input.int(3, "Higher Timeframe Multiplier", minval=2, maxval=10, group="Multi-Timeframe")
+trendMeter3 = input.string("RSI 5: > or < 50", "Trend Meter 3", options=["MACD Crossover - 12, 26, 9", "MACD Crossover - Fast - 8, 21, 5", "Mom Dad Cross (Top Dog Trading)", "RSI Signal Line Cross - RSI 13, Sig 21", "RSI 13: > or < 50", "RSI 5: > or < 50", "Trend Candles"], group="Trend Meters")
+
+// ADX for Strength
+adxLength = input.int(14, "ADX Length", minval=1, group="Strength Settings")
+veryStrongAdx = input.float(40, "Very Strong ADX", minval=1, group="Strength Settings")
+strongAdx = input.float(30, "Strong ADX", minval=1, group="Strength Settings")
+weakAdx = input.float(20, "Weak ADX", minval=1, group="Strength Settings")
 
 // ===== LIBRARY-READY FUNCTIONS =====
 
-// Hull Moving Average calculation
-calcHma(src, length) =>
-    wma1 = ta.wma(src, length / 2)
-    wma2 = ta.wma(src, length)
-    ta.wma(2 * wma1 - wma2, int(math.sqrt(length)))
+// Standard MACD
+calcMacd(fastLen, slowLen, signalLen) =>
+    macdLine = ta.ema(close, fastLen) - ta.ema(close, slowLen)
+    signalLine = ta.ema(macdLine, signalLen)
+    macdLine > signalLine
 
-// Auto-calibration function - determines optimal parameters
-autoCalibrate(lookbackBars) =>
-    avgAtr = ta.sma(ta.atr(14), math.min(lookbackBars, 200))
-    avgRange = ta.sma(high - low, math.min(lookbackBars, 200))
-    volatilityRatio = avgAtr / avgRange
+// Top Dog Trading - Mom Dad
+calcMomDad() =>
+    topDogMom = ta.ema(close, 5) - ta.ema(close, 20)
+    topDogDad = ta.ema(topDogMom, 30)
+    topDogMom > topDogDad
 
-    hmaFast = volatilityRatio > 1.5 ? 12 : volatilityRatio > 1.0 ? 9 : 7
-    hmaSlow = volatilityRatio > 1.5 ? 26 : volatilityRatio > 1.0 ? 21 : 16
+// RSI calculations
+calcRsi(length) =>
+    ta.rsi(close, length) > 50
 
-    [diP, diM, currentAdx] = ta.dmi(14, 14)
-    avgAdx = ta.sma(currentAdx, math.min(lookbackBars, 200))
+// RSI Signal Line Cross
+calcRsiSigCross() =>
+    rsiValue = ta.rsi(close, 13)
+    signalLength = 21
+    x = bar_index
+    y = rsiValue
+    x_ = ta.sma(x, signalLength)
+    y_ = ta.sma(y, signalLength)
+    mx = ta.stdev(x, signalLength)
+    my = ta.stdev(y, signalLength)
+    c = ta.correlation(x, y, signalLength)
+    slope = c * (my / mx)
+    inter = y_ - slope * x_
+    linReg = x * slope + inter
+    rsiValue > linReg
 
-    veryStrongThresh = avgAdx < 20 ? 35 : avgAdx < 30 ? 40 : 45
-    strongThresh = avgAdx < 20 ? 25 : avgAdx < 30 ? 30 : 35
-    weakThresh = avgAdx < 20 ? 15 : avgAdx < 30 ? 20 : 25
-    veryWeakThresh = avgAdx < 20 ? 8 : avgAdx < 30 ? 10 : 12
+// Trend Candles (Heikin Ashi based)
+calcTrendCandles() =>
+    haclose = ohlc4
+    var float haopen = na
+    haopen := na(haopen[1]) ? (open + close) / 2 : (haopen[1] + haclose[1]) / 2
+    ccolor = haclose - haopen > 0
+    inside6 = haopen <= math.max(haopen[6], haclose[6]) and haopen >= math.min(haopen[6], haclose[6]) and haclose <= math.max(haopen[6], haclose[6]) and haclose >= math.min(haopen[6], haclose[6])
+    inside5 = haopen <= math.max(haopen[5], haclose[5]) and haopen >= math.min(haopen[5], haclose[5]) and haclose <= math.max(haopen[5], haclose[5]) and haclose >= math.min(haopen[5], haclose[5])
+    inside4 = haopen <= math.max(haopen[4], haclose[4]) and haopen >= math.min(haopen[4], haclose[4]) and haclose <= math.max(haopen[4], haclose[4]) and haclose >= math.min(haopen[4], haclose[4])
+    inside3 = haopen <= math.max(haopen[3], haclose[3]) and haopen >= math.min(haopen[3], haclose[3]) and haclose <= math.max(haopen[3], haclose[3]) and haclose >= math.min(haopen[3], haclose[3])
+    inside2 = haopen <= math.max(haopen[2], haclose[2]) and haopen >= math.min(haopen[2], haclose[2]) and haclose <= math.max(haopen[2], haclose[2]) and haclose >= math.min(haopen[2], haclose[2])
+    inside1 = haopen <= math.max(haopen[1], haclose[1]) and haopen >= math.min(haopen[1], haclose[1]) and haclose <= math.max(haopen[1], haclose[1]) and haclose >= math.min(haopen[1], haclose[1])
+    colorvalue = inside6 ? ccolor[6] : inside5 ? ccolor[5] : inside4 ? ccolor[4] : inside3 ? ccolor[3] : inside2 ? ccolor[2] : inside1 ? ccolor[1] : ccolor
+    colorvalue
 
-    [hmaFast, hmaSlow, veryStrongThresh, strongThresh, weakThresh, veryWeakThresh]
+// Get meter result based on selection
+getMeterResult(meterChoice) =>
+    result = false
+    if meterChoice == "MACD Crossover - 12, 26, 9"
+        result := calcMacd(12, 26, 9)
+    else if meterChoice == "MACD Crossover - Fast - 8, 21, 5"
+        result := calcMacd(8, 21, 5)
+    else if meterChoice == "Mom Dad Cross (Top Dog Trading)"
+        result := calcMomDad()
+    else if meterChoice == "RSI Signal Line Cross - RSI 13, Sig 21"
+        result := calcRsiSigCross()
+    else if meterChoice == "RSI 13: > or < 50"
+        result := calcRsi(13)
+    else if meterChoice == "RSI 5: > or < 50"
+        result := calcRsi(5)
+    else if meterChoice == "Trend Candles"
+        result := calcTrendCandles()
+    result
 
-// Calculate higher timeframe string
-getHtfTimeframe(currentTf, multiplier) =>
-    currentTf == "1" ? str.tostring(multiplier) : currentTf == "5" ? str.tostring(5 * multiplier) : currentTf == "15" ? str.tostring(15 * multiplier) : currentTf == "60" ? str.tostring(60 * multiplier) : currentTf == "240" ? str.tostring(240 * multiplier) : currentTf == "D" ? "W" : "M"
-
-// Main trend scale calculation function
-calculateTrendScale(regularClose, haClose, hmaFastLen, hmaSlowLen, adxLen, useHtf, htfTf, veryStrongThresh, strongThresh, weakThresh, veryWeakThresh) =>
-    regularHmaFast = calcHma(regularClose, hmaFastLen)
-    regularHmaSlow = calcHma(regularClose, hmaSlowLen)
-    haHmaFast = calcHma(haClose, hmaFastLen)
-    haHmaSlow = calcHma(haClose, hmaSlowLen)
-
-    [diPlus, diMinus, adx] = ta.dmi(adxLen, adxLen)
-
-    regularTrendUp = regularHmaFast > regularHmaSlow
-    haTrendUp = haHmaFast > haHmaSlow
-    bothAgreeUp = regularTrendUp and haTrendUp
-
-    regularTrendDown = regularHmaFast < regularHmaSlow
-    haTrendDown = haHmaFast < haHmaSlow
-    bothAgreeDown = regularTrendDown and haTrendDown
-
-    htfHmaFast = useHtf ? request.security(syminfo.tickerid, htfTf, calcHma(close, hmaFastLen)) : regularHmaFast
-    htfHmaSlow = useHtf ? request.security(syminfo.tickerid, htfTf, calcHma(close, hmaSlowLen)) : regularHmaSlow
-    htfTrendUp = htfHmaFast > htfHmaSlow
-    htfTrendDown = htfHmaFast < htfHmaSlow
-    htfConfirmsUp = bothAgreeUp and htfTrendUp
-    htfConfirmsDown = bothAgreeDown and htfTrendDown
-
+// Calculate trend scale from meter agreement and ADX strength
+calculateTrendScale(meter1Result, meter2Result, meter3Result, adxValue, vsAdx, sAdx, wAdx) =>
+    metersPositive = (meter1Result ? 1 : 0) + (meter2Result ? 1 : 0) + (meter3Result ? 1 : 0)
+    metersNegative = (not meter1Result ? 1 : 0) + (not meter2Result ? 1 : 0) + (not meter3Result ? 1 : 0)
+    all3Positive = metersPositive == 3
+    all3Negative = metersNegative == 3
+    twoPositive = metersPositive == 2
+    twoNegative = metersNegative == 2
     scale = 5
-    if bothAgreeUp
-        scale := adx >= veryStrongThresh and htfConfirmsUp ? 9 : adx >= strongThresh and htfConfirmsUp ? 8 : adx >= strongThresh ? 8 : adx >= weakThresh ? 7 : adx >= veryWeakThresh ? 6 : 5
-    else if bothAgreeDown
-        scale := adx >= veryStrongThresh and htfConfirmsDown ? 1 : adx >= strongThresh and htfConfirmsDown ? 2 : adx >= strongThresh ? 2 : adx >= weakThresh ? 3 : adx >= veryWeakThresh ? 4 : 5
-
+    if all3Positive
+        scale := adxValue >= vsAdx ? 9 : adxValue >= sAdx ? 8 : adxValue >= wAdx ? 7 : 6
+    else if twoPositive
+        scale := 6
+    else if all3Negative
+        scale := adxValue >= vsAdx ? 1 : adxValue >= sAdx ? 2 : adxValue >= wAdx ? 3 : 4
+    else if twoNegative
+        scale := 4
     scale
 
-// ===== AUTO-CALIBRATION STATE =====
-var float autoHmaFast = 9.0
-var float autoHmaSlow = 21.0
-var float autoVeryStrongThreshold = 40.0
-var float autoStrongThreshold = 30.0
-var float autoWeakThreshold = 20.0
-var float autoVeryWeakThreshold = 10.0
-var bool calibrationComplete = false
+// ===== CALCULATE METER RESULTS =====
+meter1Result = getMeterResult(trendMeter1)
+meter2Result = getMeterResult(trendMeter2)
+meter3Result = getMeterResult(trendMeter3)
 
-actualCalibrationBars = math.min(calibrationBars, bar_index)
-
-if useAutoCalibration and not calibrationComplete and bar_index >= 100
-    [hmaF, hmaS, vsThresh, sThresh, wThresh, vwThresh] = autoCalibrate(actualCalibrationBars)
-    autoHmaFast := hmaF
-    autoHmaSlow := hmaS
-    autoVeryStrongThreshold := vsThresh
-    autoStrongThreshold := sThresh
-    autoWeakThreshold := wThresh
-    autoVeryWeakThreshold := vwThresh
-    calibrationComplete := true
-
-// ===== PARAMETER SELECTION =====
-hmaFastLength = useAutoCalibration ? int(autoHmaFast) : manualHmaFast
-hmaSlowLength = useAutoCalibration ? int(autoHmaSlow) : manualHmaSlow
-adxLength = manualAdxLength
-veryStrongThreshold = useAutoCalibration ? autoVeryStrongThreshold : manualVeryStrongThreshold
-strongThreshold = useAutoCalibration ? autoStrongThreshold : manualStrongThreshold
-weakThreshold = useAutoCalibration ? autoWeakThreshold : manualWeakThreshold
-veryWeakThreshold = useAutoCalibration ? autoVeryWeakThreshold : manualVeryWeakThreshold
-
-// ===== DATA SOURCES =====
-regularClose = close
-haClose = request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, close)
-htfTimeframe = getHtfTimeframe(timeframe.period, htfMultiplier)
+// ===== ADX FOR STRENGTH =====
+[diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
 
 // ===== CALCULATE TREND SCALE =====
-int trendScale = calculateTrendScale(regularClose, haClose, hmaFastLength, hmaSlowLength, adxLength, useHigherTimeframe, htfTimeframe, veryStrongThreshold, strongThreshold, weakThreshold, veryWeakThreshold)
+int trendScale = calculateTrendScale(meter1Result, meter2Result, meter3Result, adx, veryStrongAdx, strongAdx, weakAdx)
 
 // ===== VISUAL DISPLAY - MINIMAL DOTS =====
 plot(trendScale == 1 ? 1 : na, "Scale 1 - Very Strong Short", color=color.new(color.red, 0), style=plot.style_circles, linewidth=4)
