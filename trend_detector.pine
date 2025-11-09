@@ -184,6 +184,9 @@ plot(trendState == "Strong Trend Short" ? 1 : na, "Strong Trend Short", color=co
 plot(trendState == "Transitioning" ? 1 : na, "Transitioning", color=color.new(color.yellow, 0), style=plot.style_circles, linewidth=4)
 
 // ===== ALERTS =====
-alertcondition(trendState != trendState[1], title="Trend State Change", message="Trend state changed to: " + trendState)
 alertcondition(trendState == "Strong Trend Long" and trendState[1] != "Strong Trend Long", title="Strong Trend Long", message="Strong uptrend detected")
+alertcondition(trendState == "Weak Trend Long" and trendState[1] != "Weak Trend Long", title="Weak Trend Long", message="Weak uptrend detected")
+alertcondition(trendState == "No Trend" and trendState[1] != "No Trend", title="No Trend", message="No trend detected")
+alertcondition(trendState == "Weak Trend Short" and trendState[1] != "Weak Trend Short", title="Weak Trend Short", message="Weak downtrend detected")
 alertcondition(trendState == "Strong Trend Short" and trendState[1] != "Strong Trend Short", title="Strong Trend Short", message="Strong downtrend detected")
+alertcondition(trendState == "Transitioning" and trendState[1] != "Transitioning", title="Transitioning", message="Market transitioning between states")
