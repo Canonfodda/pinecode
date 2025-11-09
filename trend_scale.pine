@@ -15,6 +15,11 @@ veryStrongAdx = input.float(40, "Very Strong ADX", minval=1, group="Strength Set
 strongAdx = input.float(30, "Strong ADX", minval=1, group="Strength Settings")
 weakAdx = input.float(20, "Weak ADX", minval=1, group="Strength Settings")
 
+// Heikin Ashi Confirmation
+useHeikinAshi = input.bool(true, "Use Heikin Ashi Confirmation", tooltip="Add HA candle trend confirmation for stronger signals", group="Heikin Ashi")
+useLowerTfHa = input.bool(true, "Use Lower Timeframe HA", tooltip="Analyze HA candles on lower timeframe for more detail", group="Heikin Ashi")
+lowerTfDivisor = input.int(3, "Lower Timeframe Divisor", minval=2, maxval=10, tooltip="Divide current timeframe by this (3 = 1/3 of parent TF)", group="Heikin Ashi")
+
 // ===== LIBRARY-READY FUNCTIONS =====
 
 // Standard MACD
@@ -83,23 +88,50 @@ getMeterResult(meterChoice) =>
         result := calcTrendCandles()
     result
 
-// Calculate trend scale from meter agreement and ADX strength
-calculateTrendScale(meter1Result, meter2Result, meter3Result, adxValue, vsAdx, sAdx, wAdx) =>
+// Get lower timeframe string
+getLowerTimeframe(currentTf, divisor) =>
+    tfMinutes = timeframe.in_seconds() / 60
+    lowerTfMinutes = tfMinutes / divisor
+    lowerTfMinutes >= 1 ? str.tostring(int(lowerTfMinutes)) : "1"
+
+// Calculate Heikin Ashi trend strength
+calcHaTrendStrength(haCloseTf, haOpenTf) =>
+    haClose = request.security(ticker.heikinashi(syminfo.tickerid), haCloseTf, close)
+    haOpen = request.security(ticker.heikinashi(syminfo.tickerid), haCloseTf, open)
+    haHigh = request.security(ticker.heikinashi(syminfo.tickerid), haCloseTf, high)
+    haLow = request.security(ticker.heikinashi(syminfo.tickerid), haCloseTf, low)
+    bullish = haClose > haOpen
+    bodySize = math.abs(haClose - haOpen)
+    totalRange = haHigh - haLow
+    bodyRatio = totalRange > 0 ? bodySize / totalRange : 0
+    strength = bodyRatio > 0.7 ? 2 : bodyRatio > 0.4 ? 1 : 0
+    bullish ? strength : -strength
+
+// Calculate trend scale from meter agreement, ADX strength, and HA confirmation
+calculateTrendScale(meter1Result, meter2Result, meter3Result, adxValue, vsAdx, sAdx, wAdx, haStrength, haLowerStrength, useHa, useLowerHa) =>
     metersPositive = (meter1Result ? 1 : 0) + (meter2Result ? 1 : 0) + (meter3Result ? 1 : 0)
     metersNegative = (not meter1Result ? 1 : 0) + (not meter2Result ? 1 : 0) + (not meter3Result ? 1 : 0)
     all3Positive = metersPositive == 3
     all3Negative = metersNegative == 3
     twoPositive = metersPositive == 2
     twoNegative = metersNegative == 2
+    haConfirmsUp = useHa ? haStrength > 0 : true
+    haConfirmsDown = useHa ? haStrength < 0 : true
+    haLowerConfirmsUp = useLowerHa ? haLowerStrength > 0 : true
+    haLowerConfirmsDown = useLowerHa ? haLowerStrength < 0 : true
+    strongHaUp = haStrength >= 2 or haLowerStrength >= 2
+    strongHaDown = haStrength <= -2 or haLowerStrength <= -2
     scale = 5
     if all3Positive
-        scale := adxValue >= vsAdx ? 9 : adxValue >= sAdx ? 8 : adxValue >= wAdx ? 7 : 6
+        baseScale = adxValue >= vsAdx ? 9 : adxValue >= sAdx ? 8 : adxValue >= wAdx ? 7 : 6
+        scale := not haConfirmsUp or not haLowerConfirmsUp ? math.max(baseScale - 1, 6) : strongHaUp and baseScale == 8 ? 9 : baseScale
     else if twoPositive
-        scale := 6
+        scale := haConfirmsUp and haLowerConfirmsUp ? 7 : 6
     else if all3Negative
-        scale := adxValue >= vsAdx ? 1 : adxValue >= sAdx ? 2 : adxValue >= wAdx ? 3 : 4
+        baseScale = adxValue >= vsAdx ? 1 : adxValue >= sAdx ? 2 : adxValue >= wAdx ? 3 : 4
+        scale := not haConfirmsDown or not haLowerConfirmsDown ? math.min(baseScale + 1, 4) : strongHaDown and baseScale == 2 ? 1 : baseScale
     else if twoNegative
-        scale := 4
+        scale := haConfirmsDown and haLowerConfirmsDown ? 3 : 4
     scale
 
 // ===== CALCULATE METER RESULTS =====
@@ -110,8 +142,15 @@ meter3Result = getMeterResult(trendMeter3)
 // ===== ADX FOR STRENGTH =====
 [diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
 
+// ===== HEIKIN ASHI CONFIRMATION =====
+currentTf = timeframe.period
+lowerTf = getLowerTimeframe(currentTf, lowerTfDivisor)
+
+haStrength = useHeikinAshi ? calcHaTrendStrength(currentTf, currentTf) : 0
+haLowerStrength = useLowerTfHa ? calcHaTrendStrength(lowerTf, lowerTf) : 0
+
 // ===== CALCULATE TREND SCALE =====
-int trendScale = calculateTrendScale(meter1Result, meter2Result, meter3Result, adx, veryStrongAdx, strongAdx, weakAdx)
+int trendScale = calculateTrendScale(meter1Result, meter2Result, meter3Result, adx, veryStrongAdx, strongAdx, weakAdx, haStrength, haLowerStrength, useHeikinAshi, useLowerTfHa)
 
 // ===== VISUAL DISPLAY - MINIMAL DOTS =====
 plot(trendScale == 1 ? 1 : na, "Scale 1 - Very Strong Short", color=color.new(color.red, 0), style=plot.style_circles, linewidth=4)
