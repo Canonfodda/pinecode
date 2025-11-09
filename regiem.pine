@@ -1,0 +1,146 @@
+//@version=6
+indicator("Crypto Regime Detector", overlay=true)
+
+// ===== INPUT PARAMETERS =====
+// Trend Detection
+emaShortLength = input.int(20, "Short EMA Length", minval=1)
+emaMediumLength = input.int(50, "Medium EMA Length", minval=1)
+emaLongLength = input.int(200, "Long EMA Length", minval=1)
+
+// ADX Settings
+adxLength = input.int(14, "ADX Length", minval=1)
+adxThreshold = input.float(25, "ADX Trend Threshold", minval=1)
+
+// RSI Settings
+rsiLength = input.int(14, "RSI Length", minval=1)
+rsiOverbought = input.int(70, "RSI Overbought", minval=50, maxval=100)
+rsiOversold = input.int(30, "RSI Oversold", minval=0, maxval=50)
+
+// Volume Settings
+volumeLength = input.int(20, "Volume MA Length", minval=1)
+volumeSpikeMultiplier = input.float(2.0, "Volume Spike Multiplier", minval=1.0)
+
+// Ranging Detection
+rangingVolatilityThreshold = input.float(0.5, "Ranging Volatility Threshold", minval=0.1, maxval=2.0)
+
+// ===== INDICATOR CALCULATIONS =====
+// Moving Averages
+emaShort = ta.ema(close, emaShortLength)
+emaMedium = ta.ema(close, emaMediumLength)
+emaLong = ta.ema(close, emaLongLength)
+
+// ADX Calculation
+[diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
+
+// RSI
+rsi = ta.rsi(close, rsiLength)
+
+// Volume Analysis
+volumeMA = ta.sma(volume, volumeLength)
+volumeSpike = volume > (volumeMA * volumeSpikeMultiplier)
+
+// ATR for Volatility
+atr = ta.atr(14)
+atrMA = ta.sma(atr, 20)
+volatilityRatio = atr / atrMA
+
+// ===== REGIME DETECTION LOGIC =====
+
+// 1. Volume Spike Detection (Highest Priority)
+isVolumeSpike = volumeSpike and volume == ta.highest(volume, 5)
+
+// 2. Trend Long Detection
+isTrendLong = close > emaShort and emaShort > emaMedium and emaMedium > emaLong and
+              adx > adxThreshold and diPlus > diMinus and
+              not isVolumeSpike
+
+// 3. Trend Short Detection
+isTrendShort = close < emaShort and emaShort < emaMedium and emaMedium < emaLong and
+               adx > adxThreshold and diMinus > diPlus and
+               not isVolumeSpike
+
+// 4. Retracement Detection (pullback within trend)
+// Long retracement: Overall uptrend but temporary pullback
+isRetracementInUptrend = emaShort > emaLong and close < emaShort and
+                         rsi < 50 and rsi > rsiOversold and
+                         adx > 20 and not isVolumeSpike
+
+// Short retracement: Overall downtrend but temporary bounce
+isRetracementInDowntrend = emaShort < emaLong and close > emaShort and
+                           rsi > 50 and rsi < rsiOverbought and
+                           adx > 20 and not isVolumeSpike
+
+isRetracement = (isRetracementInUptrend or isRetracementInDowntrend) and
+                not isTrendLong and not isTrendShort and not isVolumeSpike
+
+// 5. Ranging Detection (sideways market)
+isRanging = adx < adxThreshold and
+            volatilityRatio < rangingVolatilityThreshold and
+            math.abs(emaShort - emaMedium) / close < 0.02 and
+            not isVolumeSpike and not isTrendLong and not isTrendShort and not isRetracement
+
+// ===== REGIME ASSIGNMENT =====
+string regime = "Undefined"
+color regimeColor = color.gray
+
+if isVolumeSpike
+    regime := "Volume Spike"
+    regimeColor := color.purple
+else if isTrendLong
+    regime := "Trend Long"
+    regimeColor := color.green
+else if isTrendShort
+    regime := "Trend Short"
+    regimeColor := color.red
+else if isRetracement
+    regime := "Retracement"
+    regimeColor := color.orange
+else if isRanging
+    regime := "Ranging"
+    regimeColor := color.blue
+else
+    regime := "Transitioning"
+    regimeColor := color.gray
+
+// ===== VISUAL DISPLAY =====
+// Plot EMAs
+plot(emaShort, "EMA Short", color=color.new(color.yellow, 0), linewidth=1)
+plot(emaMedium, "EMA Medium", color=color.new(color.orange, 0), linewidth=1)
+plot(emaLong, "EMA Long", color=color.new(color.white, 0), linewidth=2)
+
+// Background Color based on Regime
+bgcolor(color.new(regimeColor, 90), title="Regime Background")
+
+// Regime Label
+var label regimeLabel = na
+label.delete(regimeLabel)
+regimeLabel := label.new(
+     bar_index,
+     high,
+     text=regime + "\nADX: " + str.tostring(adx, "#.##") + "\nRSI: " + str.tostring(rsi, "#.##"),
+     style=label.style_label_down,
+     color=regimeColor,
+     textcolor=color.white,
+     size=size.normal
+ )
+
+// ===== ADDITIONAL INDICATORS =====
+// Plot ADX in separate pane
+plot(adx, "ADX", color=color.blue, display=display.none)
+hline(adxThreshold, "ADX Threshold", color=color.gray, linestyle=hline.style_dashed, display=display.none)
+
+// Plot RSI in separate pane
+plot(rsi, "RSI", color=color.yellow, display=display.none)
+hline(rsiOverbought, "RSI Overbought", color=color.red, linestyle=hline.style_dashed, display=display.none)
+hline(rsiOversold, "RSI Oversold", color=color.green, linestyle=hline.style_dashed, display=display.none)
+
+// Volume Spike Markers
+plotshape(isVolumeSpike, "Volume Spike", shape.triangleup, location.belowbar, color.purple, size=size.small)
+
+// Alerts
+alertcondition(regime != regime[1], title="Regime Change", message="Regime changed to: {{regime}}")
+alertcondition(isVolumeSpike, title="Volume Spike", message="Volume Spike detected!")
+alertcondition(isTrendLong and regime[1] != "Trend Long", title="Trend Long", message="Trend Long regime detected")
+alertcondition(isTrendShort and regime[1] != "Trend Short", title="Trend Short", message="Trend Short regime detected")
+alertcondition(isRetracement and regime[1] != "Retracement", title="Retracement", message="Retracement detected")
+alertcondition(isRanging and regime[1] != "Ranging", title="Ranging", message="Ranging market detected")
