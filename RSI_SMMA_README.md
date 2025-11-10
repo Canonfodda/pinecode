@@ -28,13 +28,9 @@ This strategy provides a powerful combination of momentum (RSI) and trend (SMMA)
 
 ## 📁 Files
 
-### Strategy Files
 - **`rsi_smma_strategy.pine`** - **Main backtestable strategy** (use this for trading)
-- `rsi_smma_lib.pine` - Core library with reusable RSI + SMMA functions
-- `rsi_smma_indicator.pine` - Indicator version (for analysis without trading)
-
-### Documentation
-- `RSI_SMMA_README.md` - This file
+- `rsi_smma_indicator.pine` - Indicator version (for analysis/visualization without trading)
+- `RSI_SMMA_README.md` - Complete documentation (this file)
 
 ## 🚀 Quick Start
 
@@ -380,65 +376,6 @@ The strategy automatically displays:
 - **Max Drawdown**: Largest peak-to-trough decline
 - **Sharpe Ratio**: Risk-adjusted returns (>1.0 is good)
 - **Win Rate**: Target 45-55% (with good risk/reward)
-
-## 🔧 Library Functions Reference
-
-### SMMA Functions
-
-#### `calcSmma(float src, int length)`
-Calculates Smoothed Moving Average.
-- **Parameters**: src (source price), length (period)
-- **Returns**: SMMA value
-
-#### `calcSmmaCross(float src, int fastLength, int slowLength)`
-Dual SMMA crossover signal.
-- **Returns**: true if fast > slow (bullish)
-
-### RSI Functions
-
-#### `calcRsi(int length, float threshold = 50.0)`
-RSI threshold signal.
-- **Returns**: true if RSI > threshold
-
-#### `getRsiValue(int length)`
-Raw RSI value.
-- **Returns**: RSI value (0-100)
-
-#### `calcRsiZones(int length, float overbought = 70.0, float oversold = 30.0)`
-RSI zone detection.
-- **Returns**: 1 (overbought), -1 (oversold), 0 (neutral)
-
-### Combined Functions
-
-#### `getRsiSmmaSignal(int rsiLength, int fastSmmaLength, int slowSmmaLength)`
-Basic alignment signal.
-- **Returns**: 1 (bullish), -1 (bearish), 0 (neutral)
-
-#### `getRsiSmmaConfirmation(int rsiLength, int smmaLength, float rsiThreshold = 50.0)`
-Price above SMMA + RSI confirmation.
-- **Returns**: true for confirmed bullish
-
-#### `getRsiSmmaStrength(int rsiLength, int fastSmmaLength, int slowSmmaLength)`
-Momentum strength measurement.
-- **Returns**: -3 to +3 (strength level)
-
-#### `calculateRsiSmmaTrendScale(int rsiLength, int fastSmmaLength, int slowSmmaLength, int adxLength, float adxStrongThreshold = 30.0, float adxWeakThreshold = 20.0)`
-Comprehensive trend scale with ADX.
-- **Returns**: 1-9 scale
-
-#### `detectRsiSmmaRegime(int rsiLength, int fastSmmaLength, int slowSmmaLength, int adxLength, float adxThreshold = 25.0)`
-Market regime detection.
-- **Returns**: String (regime name)
-
-### Utility Functions
-
-#### `getPriceSmmaDistance(int smmaLength)`
-Distance between price and SMMA.
-- **Returns**: Percentage distance
-
-#### `detectRsiSmmaCross(int rsiLength, int fastSmmaLength, int slowSmmaLength)`
-Entry signal detection.
-- **Returns**: 1 (bullish cross), -1 (bearish cross), 0 (no cross)
 
 ## 💡 Best Practices
 
