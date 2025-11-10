@@ -3,11 +3,14 @@ strategy("RSI + SMMA Strategy", shorttitle="RSI+SMMA", overlay=true, initial_cap
 
 // ============================================================================
 // STRATEGY LOGIC:
-// 1. Price SMMA determines trade bias (long/short)
-// 2. RSI SMMA provides entry signal
+// 1. Price SMMA (plotted on chart) determines trade bias (long/short)
+// 2. RSI SMMA (calculated, not plotted) provides entry signal
 //
 // LONG: Price > Price SMMA AND RSI > RSI SMMA
 // SHORT: Price < Price SMMA AND RSI < RSI SMMA
+//
+// NOTE: RSI and RSI SMMA are calculated internally for signal logic only.
+//       They are NOT plotted - only Price SMMA is visible on the chart.
 // ============================================================================
 
 // ============================================================================
@@ -39,7 +42,6 @@ enableShortTrades = input.bool(true, "Enable Short Trades", tooltip="Allow short
 
 // Display Settings
 showPriceSMMA = input.bool(true, "Show Price SMMA", tooltip="Display Price SMMA on chart", group="Display Settings")
-showRSI = input.bool(true, "Show RSI Panel", tooltip="Display RSI with SMMA in separate panel", group="Display Settings")
 showEntryExitMarkers = input.bool(true, "Show Entry/Exit Markers", tooltip="Display entry and exit points", group="Display Settings")
 showInfoTable = input.bool(true, "Show Info Table", tooltip="Display strategy information table", group="Display Settings")
 
@@ -189,22 +191,6 @@ plotshape(showEntryExitMarkers and shortCondition, "Short Entry", shape.triangle
 
 // Background color based on price vs SMMA
 bgcolor(priceBullish ? color.new(color.green, 95) : color.new(color.red, 95), title="Price Bias Background")
-
-// ============================================================================
-// PLOTTING - RSI PANEL
-// ============================================================================
-
-// Plot RSI and RSI SMMA in separate panel (only if enabled)
-rsiPlot = showRSI ? rsiValue : na
-rsiSmmaPlot = showRSI ? rsiSMMA : na
-
-plot(rsiPlot, "RSI", color=color.new(color.blue, 0), linewidth=2)
-plot(rsiSmmaPlot, "RSI SMMA", color=color.new(color.red, 0), linewidth=2)
-
-// RSI reference lines
-hline(70, "RSI Overbought", color=color.new(color.red, 50), linestyle=hline.style_dotted)
-hline(50, "RSI Midline", color=color.new(color.gray, 50), linestyle=hline.style_dotted)
-hline(30, "RSI Oversold", color=color.new(color.green, 50), linestyle=hline.style_dotted)
 
 // ============================================================================
 // INFO TABLE
