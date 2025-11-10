@@ -1,0 +1,191 @@
+//@version=6
+indicator("RSI + SMMA Strategy", shorttitle="RSI+SMMA", overlay=false)
+
+// Note: Replace "YourUsername" with your TradingView username after publishing the library
+// import YourUsername/RSISMMALib/1 as rs
+
+// For now, we'll include the core functions directly until library is published
+// ============================================================================
+// CORE FUNCTIONS (from rsi_smma_lib.pine)
+// ============================================================================
+
+calcSmma(float src, int length) =>
+    var float smma = na
+    if na(smma)
+        smma := ta.sma(src, length)
+    else
+        smma := (smma * (length - 1) + src) / length
+    smma
+
+getRsiSmmaStrength(int rsiLength, int fastSmmaLength, int slowSmmaLength) =>
+    rsiValue = ta.rsi(close, rsiLength)
+    fastSmma = calcSmma(close, fastSmmaLength)
+    slowSmma = calcSmma(close, slowSmmaLength)
+    priceAboveFastSmma = close > fastSmma
+    priceAboveSlowSmma = close > slowSmma
+    fastAboveSlow = fastSmma > slowSmma
+    rsiOverbought = rsiValue >= 70.0
+    rsiOversold = rsiValue <= 30.0
+    rsiBullish = rsiValue > 50.0
+    rsiBearish = rsiValue < 50.0
+    strength = 0
+    if rsiOverbought and priceAboveFastSmma and priceAboveSlowSmma and fastAboveSlow
+        strength := 3
+    else if rsiBullish and priceAboveFastSmma and fastAboveSlow
+        strength := 2
+    else if rsiBullish and priceAboveFastSmma
+        strength := 1
+    else if rsiOversold and not priceAboveFastSmma and not priceAboveSlowSmma and not fastAboveSlow
+        strength := -3
+    else if rsiBearish and not priceAboveFastSmma and not fastAboveSlow
+        strength := -2
+    else if rsiBearish and not priceAboveFastSmma
+        strength := -1
+    strength
+
+calculateRsiSmmaTrendScale(int rsiLength, int fastSmmaLength, int slowSmmaLength, int adxLength, float adxStrongThreshold, float adxWeakThreshold) =>
+    rsiSmmaStrength = getRsiSmmaStrength(rsiLength, fastSmmaLength, slowSmmaLength)
+    [diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
+    scale = 5
+    if rsiSmmaStrength == 3
+        scale := adx >= adxStrongThreshold ? 9 : (adx >= adxWeakThreshold ? 8 : 7)
+    else if rsiSmmaStrength == 2
+        scale := adx >= adxStrongThreshold ? 8 : 7
+    else if rsiSmmaStrength == 1
+        scale := adx >= adxStrongThreshold ? 7 : 6
+    else if rsiSmmaStrength == 0
+        scale := 5
+    else if rsiSmmaStrength == -1
+        scale := adx >= adxStrongThreshold ? 3 : 4
+    else if rsiSmmaStrength == -2
+        scale := adx >= adxStrongThreshold ? 2 : 3
+    else if rsiSmmaStrength == -3
+        scale := adx >= adxStrongThreshold ? 1 : (adx >= adxWeakThreshold ? 2 : 3)
+    scale
+
+detectRsiSmmaRegime(int rsiLength, int fastSmmaLength, int slowSmmaLength, int adxLength, float adxThreshold) =>
+    rsiValue = ta.rsi(close, rsiLength)
+    fastSmma = calcSmma(close, fastSmmaLength)
+    slowSmma = calcSmma(close, slowSmmaLength)
+    [diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
+    trending = adx >= adxThreshold
+    bullishSmma = fastSmma > slowSmma
+    bullishRsi = rsiValue > 50.0
+    regime = "RANGING"
+    if trending and bullishSmma and bullishRsi
+        regime := "STRONG UPTREND"
+    else if trending and bullishSmma
+        regime := "UPTREND"
+    else if trending and not bullishSmma and not bullishRsi
+        regime := "STRONG DOWNTREND"
+    else if trending and not bullishSmma
+        regime := "DOWNTREND"
+    else if bullishSmma and bullishRsi
+        regime := "RANGING BULLISH"
+    else if not bullishSmma and not bullishRsi
+        regime := "RANGING BEARISH"
+    regime
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+
+// Timeframe Settings
+parentTimeframe = input.timeframe("", "Parent Timeframe", tooltip="Leave empty for current timeframe. Select higher timeframe for trend analysis.", group="Timeframe Settings")
+
+// RSI Settings
+rsiLength = input.int(14, "RSI Length", minval=1, maxval=200, tooltip="Standard RSI period (default 14)", group="RSI Settings")
+rsiOverbought = input.float(70.0, "RSI Overbought", minval=50, maxval=100, tooltip="RSI overbought threshold", group="RSI Settings")
+rsiOversold = input.float(30.0, "RSI Oversold", minval=0, maxval=50, tooltip="RSI oversold threshold", group="RSI Settings")
+
+// SMMA Settings
+fastSmmaLength = input.int(10, "Fast SMMA Length", minval=1, maxval=200, tooltip="Fast Smoothed Moving Average period", group="SMMA Settings")
+slowSmmaLength = input.int(20, "Slow SMMA Length", minval=1, maxval=500, tooltip="Slow Smoothed Moving Average period", group="SMMA Settings")
+
+// ADX Strength Settings
+adxLength = input.int(14, "ADX Length", minval=1, maxval=100, tooltip="ADX calculation period", group="Strength Settings")
+adxStrongThreshold = input.float(30.0, "Strong Trend ADX", minval=0, maxval=100, tooltip="ADX threshold for strong trend", group="Strength Settings")
+adxWeakThreshold = input.float(20.0, "Weak Trend ADX", minval=0, maxval=100, tooltip="ADX threshold for weak trend", group="Strength Settings")
+
+// Display Settings
+showTrendScale = input.bool(true, "Show Trend Scale (1-9)", tooltip="Display trend scale from 1 (very strong short) to 9 (very strong long)", group="Display Settings")
+showRegime = input.bool(true, "Show Regime Detection", tooltip="Display market regime label", group="Display Settings")
+showSignalLine = input.bool(true, "Show Signal Line", tooltip="Display simplified signal line", group="Display Settings")
+
+// Alert Settings
+enableAlerts = input.bool(true, "Enable Alerts", tooltip="Enable alert conditions", group="Alert Settings")
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+
+effectiveTimeframe = parentTimeframe == "" ? timeframe.period : parentTimeframe
+
+// Get RSI + SMMA calculations on selected timeframe
+trendScale = request.security(syminfo.tickerid, effectiveTimeframe, calculateRsiSmmaTrendScale(rsiLength, fastSmmaLength, slowSmmaLength, adxLength, adxStrongThreshold, adxWeakThreshold), gaps=barmerge.gaps_off)
+regime = request.security(syminfo.tickerid, effectiveTimeframe, detectRsiSmmaRegime(rsiLength, fastSmmaLength, slowSmmaLength, adxLength, 25.0), gaps=barmerge.gaps_off)
+rsiValue = request.security(syminfo.tickerid, effectiveTimeframe, ta.rsi(close, rsiLength), gaps=barmerge.gaps_off)
+[diPlus, diMinus, adxValue] = request.security(syminfo.tickerid, effectiveTimeframe, ta.dmi(adxLength, adxLength), gaps=barmerge.gaps_off)
+
+// Simplified signal line (-1, 0, 1)
+signalLine = trendScale >= 7 ? 1 : (trendScale <= 3 ? -1 : 0)
+
+// ============================================================================
+// PLOTTING
+// ============================================================================
+
+// Trend Scale visualization (1-9)
+if showTrendScale
+    plot(trendScale == 9 ? 9 : na, "Scale 9 - Very Strong Long", color=color.new(#00ff00, 0), style=plot.style_circles, linewidth=5)
+    plot(trendScale == 8 ? 8 : na, "Scale 8 - Strong Long", color=color.new(#26ff00, 0), style=plot.style_circles, linewidth=4)
+    plot(trendScale == 7 ? 7 : na, "Scale 7 - Long", color=color.new(#4dff00, 0), style=plot.style_circles, linewidth=3)
+    plot(trendScale == 6 ? 6 : na, "Scale 6 - Weak Long", color=color.new(#80ff00, 0), style=plot.style_circles, linewidth=2)
+    plot(trendScale == 5 ? 5 : na, "Scale 5 - Neutral", color=color.new(#ffff00, 0), style=plot.style_circles, linewidth=2)
+    plot(trendScale == 4 ? 4 : na, "Scale 4 - Weak Short", color=color.new(#ff8000, 0), style=plot.style_circles, linewidth=2)
+    plot(trendScale == 3 ? 3 : na, "Scale 3 - Short", color=color.new(#ff4d00, 0), style=plot.style_circles, linewidth=3)
+    plot(trendScale == 2 ? 2 : na, "Scale 2 - Strong Short", color=color.new(#ff2600, 0), style=plot.style_circles, linewidth=4)
+    plot(trendScale == 1 ? 1 : na, "Scale 1 - Very Strong Short", color=color.new(#ff0000, 0), style=plot.style_circles, linewidth=5)
+
+// Signal line (simplified view)
+if showSignalLine
+    plot(signalLine, "Signal Line", color=color.new(signalLine == 1 ? #00ff00 : (signalLine == -1 ? #ff0000 : #ffff00), 0), style=plot.style_line, linewidth=2)
+
+// Reference lines
+hline(5, "Neutral", color=color.new(color.gray, 50), linestyle=hline.style_dotted)
+hline(0, "Zero", color=color.new(color.gray, 70), linestyle=hline.style_dotted)
+
+// Background color based on regime
+bgcolor(showRegime and str.contains(regime, "STRONG UPTREND") ? color.new(color.green, 90) : na, title="Strong Uptrend BG")
+bgcolor(showRegime and str.contains(regime, "STRONG DOWNTREND") ? color.new(color.red, 90) : na, title="Strong Downtrend BG")
+
+// ============================================================================
+// TABLE FOR REGIME DISPLAY
+// ============================================================================
+
+if showRegime
+    var table regimeTable = table.new(position.top_right, 2, 4, bgcolor=color.new(color.black, 80), border_width=1)
+    if barstate.islast
+        table.cell(regimeTable, 0, 0, "Regime", text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 70))
+        table.cell(regimeTable, 1, 0, regime, text_color=str.contains(regime, "UP") ? color.lime : (str.contains(regime, "DOWN") ? color.red : color.yellow), text_size=size.small, bgcolor=color.new(color.gray, 80))
+        table.cell(regimeTable, 0, 1, "Scale", text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 70))
+        table.cell(regimeTable, 1, 1, str.tostring(trendScale), text_color=trendScale >= 7 ? color.lime : (trendScale <= 3 ? color.red : color.yellow), text_size=size.small, bgcolor=color.new(color.gray, 80))
+        table.cell(regimeTable, 0, 2, "RSI", text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 70))
+        table.cell(regimeTable, 1, 2, str.tostring(math.round(rsiValue, 2)), text_color=rsiValue >= rsiOverbought ? color.lime : (rsiValue <= rsiOversold ? color.red : color.white), text_size=size.small, bgcolor=color.new(color.gray, 80))
+        table.cell(regimeTable, 0, 3, "ADX", text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 70))
+        table.cell(regimeTable, 1, 3, str.tostring(math.round(adxValue, 2)), text_color=adxValue >= adxStrongThreshold ? color.lime : (adxValue >= adxWeakThreshold ? color.yellow : color.red), text_size=size.small, bgcolor=color.new(color.gray, 80))
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+
+if enableAlerts
+    alertcondition(trendScale == 9 and trendScale[1] != 9, title="Scale 9 - Very Strong Long", message="RSI+SMMA: Very Strong Long signal detected")
+    alertcondition(trendScale == 8 and trendScale[1] != 8, title="Scale 8 - Strong Long", message="RSI+SMMA: Strong Long signal detected")
+    alertcondition(trendScale == 7 and trendScale[1] != 7, title="Scale 7 - Long", message="RSI+SMMA: Long signal detected")
+    alertcondition(trendScale == 3 and trendScale[1] != 3, title="Scale 3 - Short", message="RSI+SMMA: Short signal detected")
+    alertcondition(trendScale == 2 and trendScale[1] != 2, title="Scale 2 - Strong Short", message="RSI+SMMA: Strong Short signal detected")
+    alertcondition(trendScale == 1 and trendScale[1] != 1, title="Scale 1 - Very Strong Short", message="RSI+SMMA: Very Strong Short signal detected")
+    alertcondition(signalLine == 1 and signalLine[1] != 1, title="Buy Signal", message="RSI+SMMA: Buy signal - bullish alignment detected")
+    alertcondition(signalLine == -1 and signalLine[1] != -1, title="Sell Signal", message="RSI+SMMA: Sell signal - bearish alignment detected")
+    alertcondition(str.contains(regime, "STRONG UPTREND") and not str.contains(regime[1], "STRONG UPTREND"), title="Strong Uptrend Detected", message="RSI+SMMA: Strong uptrend regime detected")
+    alertcondition(str.contains(regime, "STRONG DOWNTREND") and not str.contains(regime[1], "STRONG DOWNTREND"), title="Strong Downtrend Detected", message="RSI+SMMA: Strong downtrend regime detected")

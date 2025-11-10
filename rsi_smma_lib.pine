@@ -1,0 +1,215 @@
+//@version=6
+// @description Library for RSI with Smoothed Moving Average (SMMA) analysis. Provides functions for calculating SMMA, RSI signals, and combining them for trend analysis with strength measurement.
+library("RSISMMALib", overlay=true)
+
+// ============================================================================
+// SMOOTHED MOVING AVERAGE (SMMA) CALCULATIONS
+// ============================================================================
+
+// @function Calculates Smoothed Moving Average (SMMA) - also known as Modified Moving Average or Running Moving Average
+// @param src Source data (typically close price)
+// @param length Period for SMMA calculation
+// @returns SMMA value
+export calcSmma(float src, int length) =>
+    var float smma = na
+    if na(smma)
+        smma := ta.sma(src, length)
+    else
+        smma := (smma * (length - 1) + src) / length
+    smma
+
+// @function Calculates dual SMMA crossover signal
+// @param src Source data (typically close price)
+// @param fastLength Fast SMMA period
+// @param slowLength Slow SMMA period
+// @returns true if fast SMMA > slow SMMA (bullish), false otherwise
+export calcSmmaCross(float src, int fastLength, int slowLength) =>
+    fastSmma = calcSmma(src, fastLength)
+    slowSmma = calcSmma(src, slowLength)
+    fastSmma > slowSmma
+
+// ============================================================================
+// RSI CALCULATIONS
+// ============================================================================
+
+// @function Calculates RSI signal based on threshold level
+// @param length RSI calculation period
+// @param threshold RSI threshold level (default 50)
+// @returns true if RSI > threshold (bullish), false otherwise
+export calcRsi(int length, float threshold = 50.0) =>
+    rsiValue = ta.rsi(close, length)
+    rsiValue > threshold
+
+// @function Calculates RSI value (returns actual RSI number)
+// @param length RSI calculation period
+// @returns RSI value (0-100)
+export getRsiValue(int length) =>
+    ta.rsi(close, length)
+
+// @function Calculates RSI with overbought/oversold zones
+// @param length RSI calculation period
+// @param overbought Overbought threshold (default 70)
+// @param oversold Oversold threshold (default 30)
+// @returns 1 for overbought, -1 for oversold, 0 for neutral
+export calcRsiZones(int length, float overbought = 70.0, float oversold = 30.0) =>
+    rsiValue = ta.rsi(close, length)
+    if rsiValue >= overbought
+        1
+    else if rsiValue <= oversold
+        -1
+    else
+        0
+
+// ============================================================================
+// COMBINED RSI + SMMA SIGNALS
+// ============================================================================
+
+// @function Basic RSI + SMMA alignment signal
+// @param rsiLength RSI calculation period
+// @param fastSmmaLength Fast SMMA period
+// @param slowSmmaLength Slow SMMA period
+// @returns 1 for bullish alignment, -1 for bearish alignment, 0 for neutral
+export getRsiSmmaSignal(int rsiLength, int fastSmmaLength, int slowSmmaLength) =>
+    rsiSignal = calcRsi(rsiLength, 50.0)
+    smmaSignal = calcSmmaCross(close, fastSmmaLength, slowSmmaLength)
+    if rsiSignal and smmaSignal
+        1
+    else if not rsiSignal and not smmaSignal
+        -1
+    else
+        0
+
+// @function Advanced RSI + SMMA signal with confirmation
+// @param rsiLength RSI calculation period
+// @param smmaLength SMMA period for price comparison
+// @param rsiThreshold RSI threshold level
+// @returns true for confirmed bullish, false otherwise
+export getRsiSmmaConfirmation(int rsiLength, int smmaLength, float rsiThreshold = 50.0) =>
+    rsiValue = ta.rsi(close, rsiLength)
+    smmaValue = calcSmma(close, smmaLength)
+    priceAboveSmma = close > smmaValue
+    rsiAboveThreshold = rsiValue > rsiThreshold
+    priceAboveSmma and rsiAboveThreshold
+
+// @function RSI + SMMA with momentum strength
+// @param rsiLength RSI calculation period
+// @param fastSmmaLength Fast SMMA period
+// @param slowSmmaLength Slow SMMA period
+// @returns Strength from -3 (strong bearish) to +3 (strong bullish)
+export getRsiSmmaStrength(int rsiLength, int fastSmmaLength, int slowSmmaLength) =>
+    rsiValue = ta.rsi(close, rsiLength)
+    fastSmma = calcSmma(close, fastSmmaLength)
+    slowSmma = calcSmma(close, slowSmmaLength)
+    priceAboveFastSmma = close > fastSmma
+    priceAboveSlowSmma = close > slowSmma
+    fastAboveSlow = fastSmma > slowSmma
+    rsiOverbought = rsiValue >= 70.0
+    rsiOversold = rsiValue <= 30.0
+    rsiBullish = rsiValue > 50.0
+    rsiBearish = rsiValue < 50.0
+    strength = 0
+    if rsiOverbought and priceAboveFastSmma and priceAboveSlowSmma and fastAboveSlow
+        strength := 3
+    else if rsiBullish and priceAboveFastSmma and fastAboveSlow
+        strength := 2
+    else if rsiBullish and priceAboveFastSmma
+        strength := 1
+    else if rsiOversold and not priceAboveFastSmma and not priceAboveSlowSmma and not fastAboveSlow
+        strength := -3
+    else if rsiBearish and not priceAboveFastSmma and not fastAboveSlow
+        strength := -2
+    else if rsiBearish and not priceAboveFastSmma
+        strength := -1
+    strength
+
+// ============================================================================
+// TREND SCALE INTEGRATION (1-9 Scale Following Codebase Pattern)
+// ============================================================================
+
+// @function Calculate comprehensive RSI + SMMA trend scale with ADX strength
+// @param rsiLength RSI calculation period
+// @param fastSmmaLength Fast SMMA period
+// @param slowSmmaLength Slow SMMA period
+// @param adxLength ADX calculation period
+// @param adxStrongThreshold Strong trend ADX threshold (default 30)
+// @param adxWeakThreshold Weak trend ADX threshold (default 20)
+// @returns Scale from 1 (very strong short) to 9 (very strong long)
+export calculateRsiSmmaTrendScale(int rsiLength, int fastSmmaLength, int slowSmmaLength, int adxLength, float adxStrongThreshold = 30.0, float adxWeakThreshold = 20.0) =>
+    rsiSmmaStrength = getRsiSmmaStrength(rsiLength, fastSmmaLength, slowSmmaLength)
+    [diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
+    scale = 5
+    if rsiSmmaStrength == 3
+        scale := adx >= adxStrongThreshold ? 9 : (adx >= adxWeakThreshold ? 8 : 7)
+    else if rsiSmmaStrength == 2
+        scale := adx >= adxStrongThreshold ? 8 : 7
+    else if rsiSmmaStrength == 1
+        scale := adx >= adxStrongThreshold ? 7 : 6
+    else if rsiSmmaStrength == 0
+        scale := 5
+    else if rsiSmmaStrength == -1
+        scale := adx >= adxStrongThreshold ? 3 : 4
+    else if rsiSmmaStrength == -2
+        scale := adx >= adxStrongThreshold ? 2 : 3
+    else if rsiSmmaStrength == -3
+        scale := adx >= adxStrongThreshold ? 1 : (adx >= adxWeakThreshold ? 2 : 3)
+    scale
+
+// ============================================================================
+// REGIME DETECTION
+// ============================================================================
+
+// @function Detect market regime using RSI + SMMA analysis
+// @param rsiLength RSI calculation period
+// @param fastSmmaLength Fast SMMA period
+// @param slowSmmaLength Slow SMMA period
+// @param adxLength ADX calculation period
+// @param adxThreshold ADX threshold for trending vs ranging (default 25)
+// @returns String representing market regime
+export detectRsiSmmaRegime(int rsiLength, int fastSmmaLength, int slowSmmaLength, int adxLength, float adxThreshold = 25.0) =>
+    rsiValue = ta.rsi(close, rsiLength)
+    fastSmma = calcSmma(close, fastSmmaLength)
+    slowSmma = calcSmma(close, slowSmmaLength)
+    [diPlus, diMinus, adx] = ta.dmi(adxLength, adxLength)
+    trending = adx >= adxThreshold
+    bullishSmma = fastSmma > slowSmma
+    bullishRsi = rsiValue > 50.0
+    regime = "RANGING"
+    if trending and bullishSmma and bullishRsi
+        regime := "STRONG UPTREND"
+    else if trending and bullishSmma
+        regime := "UPTREND"
+    else if trending and not bullishSmma and not bullishRsi
+        regime := "STRONG DOWNTREND"
+    else if trending and not bullishSmma
+        regime := "DOWNTREND"
+    else if bullishSmma and bullishRsi
+        regime := "RANGING BULLISH"
+    else if not bullishSmma and not bullishRsi
+        regime := "RANGING BEARISH"
+    regime
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+// @function Calculate distance between price and SMMA (percentage)
+// @param smmaLength SMMA period
+// @returns Percentage distance (positive if price above SMMA, negative if below)
+export getPriceSmmaDistance(int smmaLength) =>
+    smmaValue = calcSmma(close, smmaLength)
+    ((close - smmaValue) / smmaValue) * 100.0
+
+// @function Check if RSI and SMMA just crossed (entry signal detection)
+// @param rsiLength RSI calculation period
+// @param fastSmmaLength Fast SMMA period
+// @param slowSmmaLength Slow SMMA period
+// @returns 1 for bullish cross, -1 for bearish cross, 0 for no cross
+export detectRsiSmmaCross(int rsiLength, int fastSmmaLength, int slowSmmaLength) =>
+    currentSignal = getRsiSmmaSignal(rsiLength, fastSmmaLength, slowSmmaLength)
+    previousSignal = getRsiSmmaSignal(rsiLength, fastSmmaLength, slowSmmaLength)[1]
+    if currentSignal == 1 and previousSignal != 1
+        1
+    else if currentSignal == -1 and previousSignal != -1
+        -1
+    else
+        0
