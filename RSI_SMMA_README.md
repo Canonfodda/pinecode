@@ -1,65 +1,129 @@
-# RSI + SMMA Strategy Library
+# RSI + SMMA Trading Strategy
 
-A comprehensive TradingView PineScript v6 library combining RSI (Relative Strength Index) with SMMA (Smoothed Moving Average) for advanced trend analysis and trading signals.
+A comprehensive TradingView PineScript v6 **backtestable strategy** combining RSI (Relative Strength Index) with SMMA (Smoothed Moving Average) for advanced trend analysis and automated trading.
 
 ## 📋 Overview
 
-This library provides a powerful combination of momentum (RSI) and trend (SMMA) indicators to identify high-probability trading opportunities. The strategy uses multiple confirmation layers including ADX strength measurement and regime detection.
+This strategy provides a powerful combination of momentum (RSI) and trend (SMMA) indicators to identify and execute high-probability trades automatically. The strategy includes complete risk management with stop loss, take profit, and uses multiple confirmation layers including ADX strength measurement.
 
 ## 🎯 Key Features
 
-- **Smoothed Moving Average (SMMA)**: Implementation of the smoothed/modified moving average calculation
-- **RSI Analysis**: Multiple RSI functions including threshold, zones, and value extraction
-- **Combined Signals**: Integrated RSI + SMMA signals with various confirmation methods
-- **Trend Scale (1-9)**: Comprehensive trend strength measurement from very strong short (1) to very strong long (9)
-- **Regime Detection**: Identifies market states (strong uptrend, uptrend, ranging, downtrend, strong downtrend)
+### Strategy Features
+- **Automated Trading**: Backtestable strategy with automatic entry and exit orders
+- **Risk Management**: Configurable stop loss (SMMA-based, Percentage, or ATR) and take profit (Risk/Reward ratio, Percentage, or Fixed)
+- **Position Control**: Separate long/short enabling, customizable entry/exit signal levels
+- **Performance Metrics**: Real-time P&L tracking and win rate display
+
+### Technical Indicators
+- **Smoothed Moving Average (SMMA)**: Smoothed/modified moving average for trend identification
+- **RSI Analysis**: Momentum measurement with overbought/oversold detection
+- **Trend Scale (1-9)**: Comprehensive trend strength from very strong short (1) to very strong long (9)
 - **ADX Integration**: Trend strength confirmation using Average Directional Index
-- **Multi-timeframe Support**: Analyze trends across different timeframes
-- **Modular Design**: Reusable library functions for custom implementations
+
+### Visualization
+- **SMMA Lines**: Fast and slow SMMA plotted on chart
+- **Entry/Exit Markers**: Visual indicators for trades
+- **Stop Loss/Take Profit Levels**: Real-time risk levels displayed
+- **Info Table**: Shows current trend scale, RSI, ADX, position, P&L, and win rate
 
 ## 📁 Files
 
-### Library Files
-- `rsi_smma_lib.pine` - Core library with all RSI + SMMA functions
-
-### Example Indicators
-- `rsi_smma_indicator.pine` - Full-featured indicator demonstrating the strategy
+### Strategy Files
+- **`rsi_smma_strategy.pine`** - **Main backtestable strategy** (use this for trading)
+- `rsi_smma_lib.pine` - Core library with reusable RSI + SMMA functions
+- `rsi_smma_indicator.pine` - Indicator version (for analysis without trading)
 
 ### Documentation
 - `RSI_SMMA_README.md` - This file
 
 ## 🚀 Quick Start
 
-### Using the Indicator
+### Using the Strategy (Recommended)
 
-1. Copy `rsi_smma_indicator.pine` to TradingView Pine Editor
-2. Click "Add to Chart"
-3. Configure settings:
-   - **RSI Length**: Default 14 (standard RSI period)
-   - **Fast SMMA**: Default 10 (responsive to recent price action)
-   - **Slow SMMA**: Default 20 (confirms longer-term trend)
-   - **ADX Length**: Default 14 (trend strength measurement)
+1. **Load Strategy**: Copy `rsi_smma_strategy.pine` to TradingView Pine Editor
+2. **Add to Chart**: Click "Add to Chart" - strategy will appear as overlay
+3. **Open Strategy Tester**: Click the "Strategy Tester" tab at bottom of screen to see performance metrics
+4. **Configure Settings**:
 
-### Using the Library
+#### Essential Settings
+- **Entry Signal Level (Long)**: Default 7 (Scale 7-9 for long entries)
+  - 7 = Long, 8 = Strong Long, 9 = Very Strong Long
+- **Entry Signal Level (Short)**: Default 3 (Scale 1-3 for short entries)
+  - 3 = Short, 2 = Strong Short, 1 = Very Strong Short
+- **Exit Signal Level**: Default 5 (Neutral - exits both directions)
 
-1. Publish `rsi_smma_lib.pine` as a library on TradingView
-2. Import in your indicator:
-```pinescript
-import YourUsername/RSISMMALib/1 as rs
-```
-3. Use library functions:
-```pinescript
-// Calculate trend scale
-trendScale = rs.calculateRsiSmmaTrendScale(14, 10, 20, 14, 30.0, 20.0)
+#### Risk Management
+- **Stop Loss Type**: Choose SMMA (default), Percentage, or ATR
+  - **SMMA**: Uses slow SMMA as dynamic support/resistance
+  - **Percentage**: Fixed percentage from entry (e.g., 2%)
+  - **ATR**: Multiple of Average True Range (e.g., 2x ATR)
+- **Take Profit Type**: Choose Risk Ratio (default), Percentage, or Fixed
+  - **Risk Ratio**: Multiple of stop distance (e.g., 2:1 risk/reward)
 
-// Detect regime
-regime = rs.detectRsiSmmaRegime(14, 10, 20, 14, 25.0)
+#### Trading Controls
+- **Enable Long Trades**: Toggle long positions on/off
+- **Enable Short Trades**: Toggle short positions on/off
 
-// Get signal strength
-strength = rs.getRsiSmmaStrength(14, 10, 20)
-```
+### Backtesting the Strategy
+
+1. **Time Period**: Use TradingView's date range selector to test specific periods
+2. **Initial Capital**: Set in strategy settings (default $10,000)
+3. **Performance Metrics**: View in Strategy Tester tab:
+   - Net Profit, Profit Factor, Max Drawdown
+   - Win Rate, Total Trades, Average Trade
+   - Sharpe Ratio, etc.
+4. **Optimize**: Adjust entry/exit levels and risk parameters based on results
 
 ## 📊 Strategy Logic
+
+### How the Strategy Works
+
+#### Entry Logic
+**Long Entries:**
+- Trigger: Trend scale crosses above the Entry Signal Level (default 7)
+- Confirmation: RSI > 50, Fast SMMA > Slow SMMA, ADX confirms trend strength
+- Execution: `strategy.entry("Long", strategy.long)`
+
+**Short Entries:**
+- Trigger: Trend scale crosses below the Short Entry Level (default 3)
+- Confirmation: RSI < 50, Fast SMMA < Slow SMMA, ADX confirms trend strength
+- Execution: `strategy.entry("Short", strategy.short)`
+
+#### Exit Logic
+**Signal-Based Exits:**
+- Long Exit: When trend scale drops to Exit Signal Level (default 5) or below
+- Short Exit: When trend scale rises to (10 - Exit Signal Level) or above
+
+**Risk-Based Exits (via strategy.exit):**
+- Stop Loss: Triggered if price hits calculated stop level
+- Take Profit: Triggered if price hits calculated profit target
+
+#### Risk Management Calculation
+
+**Stop Loss Options:**
+1. **SMMA-Based** (Recommended):
+   - Long: Stop at Slow SMMA (dynamic support)
+   - Short: Stop at Slow SMMA (dynamic resistance)
+   - Adapts to market volatility automatically
+
+2. **Percentage-Based**:
+   - Long: Entry price × (1 - Stop Loss %)
+   - Short: Entry price × (1 + Stop Loss %)
+
+3. **ATR-Based** (Volatility-adjusted):
+   - Long: Entry price - (ATR × Multiplier)
+   - Short: Entry price + (ATR × Multiplier)
+
+**Take Profit Options:**
+1. **Risk/Reward Ratio** (Recommended):
+   - Profit Target = Entry + (Stop Distance × Risk/Reward Ratio)
+   - Example: 2:1 ratio means profit target is 2× the stop distance
+
+2. **Percentage-Based**:
+   - Long: Entry price × (1 + Take Profit %)
+   - Short: Entry price × (1 - Take Profit %)
+
+### Indicator Calculations
 
 ### SMMA Calculation
 
@@ -163,92 +227,159 @@ The strategy identifies 6 market regimes:
 - **Light green**: Strong uptrend regime
 - **Light red**: Strong downtrend regime
 
-## ⚙️ Configuration
+## ⚙️ Strategy Configuration
 
-### RSI Settings
-- **RSI Length**: Period for RSI calculation (default: 14)
-  - Lower values (5-9): More responsive, more signals
-  - Higher values (14-21): Smoother, fewer false signals
-- **Overbought Level**: Default 70
-- **Oversold Level**: Default 30
+### Strategy Settings (Most Important)
+- **Entry Signal Level (Long)**: Default 7 (range 6-9)
+  - Conservative (8-9): Fewer but stronger signals
+  - Moderate (7): Balanced approach
+  - Aggressive (6): More signals, earlier entries
 
-### SMMA Settings
-- **Fast SMMA Length**: Default 10
-  - Shorter periods: More responsive to price changes
-  - Recommended range: 5-15
-- **Slow SMMA Length**: Default 20
-  - Longer periods: Confirms overall trend direction
-  - Recommended range: 20-50
+- **Entry Signal Level (Short)**: Default 3 (range 1-4)
+  - Conservative (1-2): Fewer but stronger signals
+  - Moderate (3): Balanced approach
+  - Aggressive (4): More signals, earlier entries
 
-### ADX Settings
-- **ADX Length**: Default 14 (standard)
-- **Strong Trend Threshold**: Default 30
-- **Weak Trend Threshold**: Default 20
+- **Exit Signal Level**: Default 5 (range 1-5)
+  - Lower values (3-4): Hold positions longer
+  - Neutral (5): Exit at trend reversal
+  - Higher values (6+): Quick exits
 
-### Display Options
-- **Show Trend Scale (1-9)**: Display full 9-level scale
-- **Show Regime Detection**: Display regime table
-- **Show Signal Line**: Simplified -1/0/+1 signal
+- **Enable Long Trades**: Default true
+- **Enable Short Trades**: Default true (disable for long-only strategies)
 
-### Alert Settings
-- **Enable Alerts**: Turn on/off all alert conditions
-- Alerts trigger on:
-  - Trend scale changes (1, 2, 3, 7, 8, 9)
-  - Signal line crosses (buy/sell)
-  - Regime changes (strong uptrend/downtrend)
+### Risk Management Settings
+**Stop Loss:**
+- **Type**: SMMA (recommended), Percentage, or ATR
+- **Stop Loss %**: 2% (if using Percentage type)
+- **ATR Multiplier**: 2.0 (if using ATR type)
+- **ATR Length**: 14
 
-## 📈 Trading Applications
+**Take Profit:**
+- **Type**: Risk Ratio (recommended), Percentage, or Fixed
+- **Risk/Reward Ratio**: 2.0 (2:1 reward/risk)
+- **Take Profit %**: 4% (if using Percentage type)
 
-### Entry Signals
+### Indicator Settings
+**RSI:**
+- **Length**: 14 (standard)
+  - Lower (5-9): More responsive, more signals
+  - Higher (14-21): Smoother, fewer false signals
 
-**Long Entry**:
-1. **Conservative**: Scale 8-9 (very strong long)
-2. **Moderate**: Scale 7 (long) with confirmation
-3. **Aggressive**: Scale 6 (weak long) on pullbacks
+**SMMA:**
+- **Fast Length**: 10 (responsive)
+  - Range: 5-15
+- **Slow Length**: 20 (trend confirmation)
+  - Range: 20-50
 
-**Short Entry**:
-1. **Conservative**: Scale 1-2 (very strong short)
-2. **Moderate**: Scale 3 (short) with confirmation
-3. **Aggressive**: Scale 4 (weak short) on bounces
+**ADX:**
+- **Length**: 14 (standard)
+- **Strong Threshold**: 30
+- **Weak Threshold**: 20
 
-### Exit Signals
+### Display Settings
+- **Show SMMA Lines on Chart**: Shows Fast/Slow SMMA
+- **Show Entry/Exit Markers**: Triangle markers for trades
+- **Show Info Table**: Real-time stats (Scale, RSI, ADX, Position, P&L, Win Rate)
 
-**Long Exit**:
-- Scale drops to 5 (neutral) or below
-- Regime changes to DOWNTREND or RANGING BEARISH
-- RSI reaches extreme overbought (>80)
+## 📈 Strategy Usage Guide
 
-**Short Exit**:
-- Scale rises to 5 (neutral) or above
-- Regime changes to UPTREND or RANGING BULLISH
-- RSI reaches extreme oversold (<20)
+### Recommended Configurations by Trading Style
 
-### Filter Conditions
-
-**Avoid Trading When**:
-- Scale = 5 (neutral, no clear trend)
-- ADX < 20 (weak trend, ranging market)
-- Regime = "RANGING" (choppy conditions)
-- Conflicting signals (RSI bullish but SMMA bearish)
-
-### Multi-Timeframe Strategy
-
-**Example Setup**:
-1. **Higher TF** (4H/Daily): Identify overall trend
-2. **Lower TF** (15m/1H): Find precise entries
-3. **Rule**: Only trade in direction of higher timeframe
-
-**Implementation**:
-```pinescript
-// Higher timeframe trend
-htfScale = request.security(syminfo.tickerid, "240", calculateRsiSmmaTrendScale(...))
-
-// Lower timeframe entry
-ltfScale = calculateRsiSmmaTrendScale(...)
-
-// Only long when HTF is bullish
-longCondition = htfScale >= 6 and ltfScale >= 7
+#### Conservative (Lower Frequency, Higher Accuracy)
 ```
+Entry Signal Level (Long): 8
+Entry Signal Level (Short): 2
+Exit Signal Level: 5
+Stop Loss Type: SMMA
+Take Profit Type: Risk Ratio (2.0)
+```
+- Fewer trades, stronger confirmations
+- Best for: Swing trading, larger timeframes (4H, Daily)
+
+#### Balanced (Default Settings)
+```
+Entry Signal Level (Long): 7
+Entry Signal Level (Short): 3
+Exit Signal Level: 5
+Stop Loss Type: SMMA
+Take Profit Type: Risk Ratio (2.0)
+```
+- Moderate trade frequency with good accuracy
+- Best for: Most traders, 1H-4H timeframes
+
+#### Aggressive (Higher Frequency, More Trades)
+```
+Entry Signal Level (Long): 6
+Entry Signal Level (Short): 4
+Exit Signal Level: 4
+Stop Loss Type: ATR (Multiplier: 1.5)
+Take Profit Type: Risk Ratio (1.5)
+```
+- More trading opportunities, accept some false signals
+- Best for: Day trading, smaller timeframes (15m-1H)
+
+### Timeframe Recommendations
+
+**Scalping (5m-15m):**
+- Fast SMMA: 5-8
+- Slow SMMA: 10-15
+- RSI: 5-9
+- Entry Level (Long): 6-7
+- Higher frequency, tighter stops
+
+**Day Trading (15m-1H):**
+- Fast SMMA: 8-10
+- Slow SMMA: 15-20
+- RSI: 9-14
+- Entry Level (Long): 7
+- Balanced settings (use defaults)
+
+**Swing Trading (4H-Daily):**
+- Fast SMMA: 10-15
+- Slow SMMA: 20-30
+- RSI: 14-21
+- Entry Level (Long): 7-8
+- Lower frequency, higher conviction trades
+
+**Position Trading (Daily-Weekly):**
+- Fast SMMA: 15-20
+- Slow SMMA: 30-50
+- RSI: 14-21
+- Entry Level (Long): 8-9
+- Very selective, strong trends only
+
+### Market-Specific Settings
+
+**Crypto (High Volatility):**
+- Use ATR-based stops (Multiplier: 2.5-3.0)
+- Shorter SMMA periods (Fast: 8, Slow: 16)
+- Entry Level: 7 (need confirmation but can't wait too long)
+
+**Forex:**
+- SMMA-based stops work well (respects technical levels)
+- Standard periods (Fast: 10, Slow: 20)
+- Consider session times in backtest
+
+**Stocks:**
+- Percentage-based stops common (2-3%)
+- Standard settings work well
+- Adjust for gap risk (don't trade on open)
+
+### What to Monitor
+
+The strategy automatically displays:
+1. **Current Trend Scale**: Shows market strength (1-9)
+2. **Position**: LONG, SHORT, or NONE
+3. **P&L**: Net profit/loss from all trades
+4. **Win Rate**: Percentage of winning trades
+
+**In Strategy Tester Tab:**
+- **Net Profit**: Total profit minus total loss
+- **Profit Factor**: Gross profit / Gross loss (>1.5 is good)
+- **Max Drawdown**: Largest peak-to-trough decline
+- **Sharpe Ratio**: Risk-adjusted returns (>1.0 is good)
+- **Win Rate**: Target 45-55% (with good risk/reward)
 
 ## 🔧 Library Functions Reference
 
@@ -311,42 +442,73 @@ Entry signal detection.
 
 ## 💡 Best Practices
 
-### Parameter Optimization
+### Strategy Optimization Process
 
-1. **RSI Length**:
-   - Trending markets: 14-21 (standard to slow)
-   - Ranging markets: 5-9 (fast, responsive)
+1. **Start with Defaults**: Run backtest with default settings first
+2. **Analyze Results**: Look at Strategy Tester metrics
+3. **Identify Issues**:
+   - Low win rate? → Increase entry levels (7→8, 3→2)
+   - Too few trades? → Decrease entry levels (7→6, 3→4)
+   - Large drawdowns? → Tighten stops or reduce position size
+   - Small winners? → Increase take profit ratio
+4. **Optimize One Parameter at a Time**: Don't change everything at once
+5. **Test on Different Periods**: Ensure strategy works in different market conditions
 
-2. **SMMA Lengths**:
-   - Fast/Slow ratio: 1:2 is standard (e.g., 10/20, 15/30)
-   - Wider spreads: Stronger confirmation but slower signals
-   - Narrower spreads: Faster signals but more whipsaws
+### Risk Management Rules
 
-3. **ADX Thresholds**:
-   - Volatile markets: Lower thresholds (20/25)
-   - Calm markets: Higher thresholds (30/35)
+1. **Never Risk More Than 2% Per Trade**:
+   - Strategy uses 100% equity by default
+   - In live trading, adjust position size based on stop distance
+   - Position Size = (Account × 2%) / Stop Distance
 
-### Risk Management
+2. **Use Appropriate Stop Loss Type**:
+   - **Trending markets**: SMMA-based (adapts to trend)
+   - **Range-bound**: Percentage or ATR (fixed risk)
+   - **High volatility**: ATR with larger multiplier (2.5-3.0)
 
-1. **Position Sizing**: Scale positions based on trend scale
-   - Scale 8-9: Full position
-   - Scale 6-7: Half position
-   - Scale 4-5: No position
+3. **Set Realistic Take Profit Targets**:
+   - Risk/Reward Ratio of 2:1 is standard
+   - Aggressive: 1.5:1 (higher win rate needed)
+   - Conservative: 3:1 (lower win rate acceptable)
 
-2. **Stop Loss**: Place stops based on SMMA levels
-   - Long: Below slow SMMA
-   - Short: Above slow SMMA
+4. **Monitor Drawdowns**:
+   - If drawdown > 20%: Stop trading and review settings
+   - If drawdown > 10%: Reduce position size
 
-3. **Take Profit**: Use scale levels
-   - Exit 50% at opposite weak signal (scale 4 for longs)
-   - Exit remaining at neutral (scale 5)
+### Common Pitfalls to Avoid
 
-### Common Pitfalls
+1. **Over-optimization (Curve Fitting)**:
+   - Don't optimize every parameter perfectly for past data
+   - Test on out-of-sample period (different time range)
+   - If performance drops significantly, you over-fit
 
-1. **Overtrading**: Wait for scale 7+ (long) or 3- (short)
-2. **Ignoring ADX**: Don't trade when ADX < 20 (ranging)
-3. **Fighting the Trend**: Only trade in direction of higher timeframe
-4. **FOMO**: Wait for pullbacks to strong SMMA support/resistance
+2. **Ignoring Market Conditions**:
+   - Strategy works best in trending markets
+   - Reduce position size in ranging markets (low ADX)
+   - Consider disabling during major news events
+
+3. **Wrong Timeframe**:
+   - Don't scalp on daily charts
+   - Don't swing trade on 1-minute charts
+   - Match strategy settings to your timeframe (see Timeframe Recommendations)
+
+4. **Ignoring Commission and Slippage**:
+   - Strategy includes 0.1% commission and 2 ticks slippage
+   - Adjust these in strategy settings for your broker
+   - High-frequency trading needs lower entry/exit levels to overcome costs
+
+5. **Revenge Trading After Losses**:
+   - Strategy may have losing streaks (normal)
+   - Don't manually override with more aggressive settings
+   - Trust the system if backtest shows profitability
+
+### Forward Testing Before Live Trading
+
+1. **Paper Trading**: Use TradingView's paper trading feature
+2. **Small Size**: Start with minimal position size
+3. **Track Real Performance**: Compare to backtest results
+4. **Adjust for Reality**: Account for emotions, execution delays
+5. **Only Go Live**: When paper trading matches backtest expectations
 
 ## 📊 Performance Considerations
 
