@@ -115,10 +115,10 @@ bgcolor(rsi <= rsi_lower_zone ? color.new(color.green, 95) : na, title="Long Zon
 bgcolor(rsi >= rsi_upper_zone ? color.new(color.red, 95) : na, title="Short Zone")
 
 // Plot entry signals on RSI panel
-plotshape(long_flag, "Long Flag", shape.circle, location.location_bottom, color.new(color.green, 30), size=size.tiny, text="L Flag")
-plotshape(short_flag, "Short Flag", shape.circle, location.location_top, color.new(color.red, 30), size=size.tiny, text="S Flag")
-plotshape(long_entry, "Long Entry", shape.triangleup, location.location_bottom, color.new(color.green, 0), size=size.small, text="LONG")
-plotshape(short_entry, "Short Entry", shape.triangledown, location.location_top, color.new(color.red, 0), size=size.small, text="SHORT")
+plotshape(long_flag, "Long Flag", shape.circle, location.bottom, color.new(color.green, 30), size=size.tiny, text="L Flag")
+plotshape(short_flag, "Short Flag", shape.circle, location.top, color.new(color.red, 30), size=size.tiny, text="S Flag")
+plotshape(long_entry, "Long Entry", shape.triangleup, location.bottom, color.new(color.green, 0), size=size.small, text="LONG")
+plotshape(short_entry, "Short Entry", shape.triangledown, location.top, color.new(color.red, 0), size=size.small, text="SHORT")
 
 // ============================================================================
 // ALERTS

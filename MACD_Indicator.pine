@@ -47,8 +47,8 @@ bgcolor(highlight_crosses and macd_cross_above ? color.new(color.green, 90) : na
 bgcolor(highlight_crosses and macd_cross_below ? color.new(color.red, 90) : na, title="Bearish Cross")
 
 // Crossover Markers
-plotshape(highlight_crosses and macd_cross_above, "Bullish Cross", shape.triangleup, location.location_bottom, color.new(color.green, 0), size=size.small, text="▲")
-plotshape(highlight_crosses and macd_cross_below, "Bearish Cross", shape.triangledown, location.location_top, color.new(color.red, 0), size=size.small, text="▼")
+plotshape(highlight_crosses and macd_cross_above, "Bullish Cross", shape.triangleup, location.bottom, color.new(color.green, 0), size=size.small, text="▲")
+plotshape(highlight_crosses and macd_cross_below, "Bearish Cross", shape.triangledown, location.top, color.new(color.red, 0), size=size.small, text="▼")
 
 // ============================================================================
 // ALERTS
