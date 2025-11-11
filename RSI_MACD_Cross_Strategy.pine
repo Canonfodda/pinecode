@@ -28,8 +28,9 @@ macd_signal = input.int(9, "MACD Signal Length", minval=1)
 
 // Exit Settings
 enable_rsi_exit = input.bool(true, "Exit on RSI/SMA Crossback", tooltip="When enabled, positions exit when RSI crosses back over its SMA. When disabled, you'll need another exit method.")
-enable_smma_exit = input.bool(false, "Exit on SMMA Candle Close", tooltip="LONG exits when 1 candle closes below SMMA. SHORT exits when 1 candle closes above SMMA.")
-smma_length = input.int(50, "SMMA Length", minval=1, tooltip="Length for the Smoothed Moving Average exit condition")
+enable_smma_exit = input.bool(false, "Exit on MA Candle Close", tooltip="LONG exits when 1 candle closes below MA. SHORT exits when 1 candle closes above MA.")
+ma_type = input.string("RMA", "MA Type", options=["SMA", "EMA", "WMA", "RMA", "HMA", "VWMA"], tooltip="Moving Average type for exit condition")
+smma_length = input.int(50, "MA Length", minval=1, tooltip="Length for the Moving Average exit condition")
 
 // Visual Settings
 show_rsi_panel = input.bool(true, "Show RSI Panel")
@@ -45,8 +46,18 @@ rsi_sma = ta.sma(rsi, rsi_sma_length)
 // MACD Calculation
 [macd_line, signal_line, macd_histogram] = ta.macd(close, macd_fast, macd_slow, macd_signal)
 
-// SMMA Calculation (Smoothed Moving Average - also known as RMA)
-smma = ta.rma(close, smma_length)
+// Moving Average Calculation (selectable type)
+ma_value = switch ma_type
+    "SMA"  => ta.sma(close, smma_length)
+    "EMA"  => ta.ema(close, smma_length)
+    "WMA"  => ta.wma(close, smma_length)
+    "RMA"  => ta.rma(close, smma_length)  // RMA = SMMA (Smoothed MA)
+    "HMA"  => ta.hma(close, smma_length)
+    "VWMA" => ta.vwma(close, smma_length)
+    => ta.rma(close, smma_length)  // Default to RMA
+
+// Keep smma variable name for backward compatibility in code
+smma = ma_value
 
 // ============================================================================
 // SIGNAL LOGIC
@@ -205,11 +216,11 @@ if barstate.islast
     table.cell(dashboard, 0, 4, "Signal", bgcolor=color.new(color.yellow, 90))
     table.cell(dashboard, 1, 4, str.tostring(signal_line, "#.####"), bgcolor=color.new(color.yellow, 90))
 
-    // SMMA (if enabled)
+    // MA (if enabled)
     if enable_smma_exit
-        table.cell(dashboard, 0, 5, "SMMA", bgcolor=color.new(color.purple, 90))
+        table.cell(dashboard, 0, 5, ma_type, bgcolor=color.new(color.purple, 90))
         table.cell(dashboard, 1, 5, str.tostring(smma, "#.##"), bgcolor=color.new(color.purple, 90))
-        table.cell(dashboard, 0, 6, "Price vs SMMA", bgcolor=color.new(color.gray, 90))
+        table.cell(dashboard, 0, 6, "Price vs " + ma_type, bgcolor=color.new(color.gray, 90))
         smma_relation = close > smma ? "ABOVE" : close < smma ? "BELOW" : "AT"
         table.cell(dashboard, 1, 6, smma_relation, bgcolor=color.new(color.gray, 90))
 

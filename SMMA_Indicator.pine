@@ -1,33 +1,41 @@
 //@version=6
-indicator("SMMA Exit Indicator", overlay=true)
+indicator("MA Exit Indicator", overlay=true)
 
 // ============================================================================
 // INPUTS
 // ============================================================================
 
-smma_length = input.int(50, "SMMA Length", minval=1, tooltip="Smoothed Moving Average length")
-show_exit_zones = input.bool(true, "Highlight Exit Zones", tooltip="Highlight when candles close through SMMA")
+ma_type = input.string("RMA", "MA Type", options=["SMA", "EMA", "WMA", "RMA", "HMA", "VWMA"], tooltip="Moving Average type for exit condition")
+ma_length = input.int(50, "MA Length", minval=1, tooltip="Moving Average length")
+show_exit_zones = input.bool(true, "Highlight Exit Zones", tooltip="Highlight when candles close through MA")
 
 // ============================================================================
 // CALCULATIONS
 // ============================================================================
 
-// SMMA Calculation (Smoothed Moving Average - also known as RMA)
-smma = ta.rma(close, smma_length)
+// Moving Average Calculation (selectable type)
+ma_value = switch ma_type
+    "SMA"  => ta.sma(close, ma_length)
+    "EMA"  => ta.ema(close, ma_length)
+    "WMA"  => ta.wma(close, ma_length)
+    "RMA"  => ta.rma(close, ma_length)  // RMA = SMMA (Smoothed MA)
+    "HMA"  => ta.hma(close, ma_length)
+    "VWMA" => ta.vwma(close, ma_length)
+    => ta.rma(close, ma_length)  // Default to RMA
 
 // Exit Conditions Detection
-// LONG Exit: Candle open AND close below SMMA
-long_exit_signal = open < smma and close < smma
+// LONG Exit: Candle open AND close below MA
+long_exit_signal = open < ma_value and close < ma_value
 
-// SHORT Exit: Candle open AND close above SMMA
-short_exit_signal = open > smma and close > smma
+// SHORT Exit: Candle open AND close above MA
+short_exit_signal = open > ma_value and close > ma_value
 
 // ============================================================================
 // VISUALIZATIONS
 // ============================================================================
 
-// Plot SMMA
-plot(smma, "SMMA", color=color.new(color.purple, 0), linewidth=2)
+// Plot MA
+plot(ma_value, ma_type, color=color.new(color.purple, 0), linewidth=2)
 
 // Highlight exit zones
 bgcolor(show_exit_zones and long_exit_signal ? color.new(color.red, 85) : na, title="Long Exit Zone")
@@ -41,5 +49,5 @@ plotshape(show_exit_zones and short_exit_signal, "Short Exit", shape.xcross, loc
 // ALERTS
 // ============================================================================
 
-alertcondition(long_exit_signal, "SMMA Long Exit", "Candle closed below SMMA - LONG EXIT signal")
-alertcondition(short_exit_signal, "SMMA Short Exit", "Candle closed above SMMA - SHORT EXIT signal")
+alertcondition(long_exit_signal, ma_type + " Long Exit", "Candle closed below " + ma_type + " - LONG EXIT signal")
+alertcondition(short_exit_signal, ma_type + " Short Exit", "Candle closed above " + ma_type + " - SHORT EXIT signal")
