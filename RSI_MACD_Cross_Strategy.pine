@@ -22,6 +22,9 @@ macd_fast = input.int(12, "MACD Fast Length", minval=1)
 macd_slow = input.int(26, "MACD Slow Length", minval=1)
 macd_signal = input.int(9, "MACD Signal Length", minval=1)
 
+// Exit Settings
+enable_rsi_exit = input.bool(true, "Exit on RSI/SMA Crossback", tooltip="When enabled, positions exit when RSI crosses back over its SMA. When disabled, you'll need another exit method.")
+
 // Visual Settings
 show_rsi_panel = input.bool(true, "Show RSI Panel")
 
@@ -64,7 +67,7 @@ if rsi >= rsi_upper_zone and rsi_cross_below_sma
     long_flag := false
 
 // Clear flags on any RSI/SMA cross (for exit logic)
-if rsi_cross_any and strategy.position_size != 0
+if enable_rsi_exit and rsi_cross_any and strategy.position_size != 0
     long_flag := false
     short_flag := false
 
@@ -72,9 +75,9 @@ if rsi_cross_any and strategy.position_size != 0
 long_entry = long_flag and macd_cross_above
 short_entry = short_flag and macd_cross_below
 
-// Exit Conditions
-exit_long = strategy.position_size > 0 and rsi_cross_any
-exit_short = strategy.position_size < 0 and rsi_cross_any
+// Exit Conditions (conditional based on setting)
+exit_long = enable_rsi_exit and strategy.position_size > 0 and rsi_cross_any
+exit_short = enable_rsi_exit and strategy.position_size < 0 and rsi_cross_any
 
 // ============================================================================
 // STRATEGY EXECUTION
