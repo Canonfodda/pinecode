@@ -24,6 +24,8 @@ macd_signal = input.int(9, "MACD Signal Length", minval=1)
 
 // Exit Settings
 enable_rsi_exit = input.bool(true, "Exit on RSI/SMA Crossback", tooltip="When enabled, positions exit when RSI crosses back over its SMA. When disabled, you'll need another exit method.")
+enable_smma_exit = input.bool(false, "Exit on SMMA Candle Close", tooltip="LONG exits when 1 candle closes below SMMA. SHORT exits when 1 candle closes above SMMA.")
+smma_length = input.int(50, "SMMA Length", minval=1, tooltip="Length for the Smoothed Moving Average exit condition")
 
 // Visual Settings
 show_rsi_panel = input.bool(true, "Show RSI Panel")
@@ -38,6 +40,9 @@ rsi_sma = ta.sma(rsi, rsi_sma_length)
 
 // MACD Calculation
 [macd_line, signal_line, macd_histogram] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+
+// SMMA Calculation (Smoothed Moving Average - also known as RMA)
+smma = ta.rma(close, smma_length)
 
 // ============================================================================
 // SIGNAL LOGIC
@@ -75,9 +80,16 @@ if enable_rsi_exit and rsi_cross_any and strategy.position_size != 0
 long_entry = long_flag and macd_cross_above
 short_entry = short_flag and macd_cross_below
 
-// Exit Conditions (conditional based on setting)
-exit_long = enable_rsi_exit and strategy.position_size > 0 and rsi_cross_any
-exit_short = enable_rsi_exit and strategy.position_size < 0 and rsi_cross_any
+// SMMA Exit Conditions
+// LONG: Exit when candle open AND close are both below SMMA
+smma_exit_long = enable_smma_exit and strategy.position_size > 0 and open < smma and close < smma
+
+// SHORT: Exit when candle open AND close are both above SMMA
+smma_exit_short = enable_smma_exit and strategy.position_size < 0 and open > smma and close > smma
+
+// Combined Exit Conditions
+exit_long = (enable_rsi_exit and strategy.position_size > 0 and rsi_cross_any) or smma_exit_long
+exit_short = (enable_rsi_exit and strategy.position_size < 0 and rsi_cross_any) or smma_exit_short
 
 // ============================================================================
 // STRATEGY EXECUTION
@@ -95,10 +107,12 @@ if short_entry
 
 // Exits
 if exit_long
-    strategy.close("Long", comment="RSI/SMA Cross Exit")
+    exit_reason = smma_exit_long ? "SMMA Exit" : "RSI/SMA Exit"
+    strategy.close("Long", comment=exit_reason)
 
 if exit_short
-    strategy.close("Short", comment="RSI/SMA Cross Exit")
+    exit_reason = smma_exit_short ? "SMMA Exit" : "RSI/SMA Exit"
+    strategy.close("Short", comment=exit_reason)
 
 // ============================================================================
 // VISUALIZATIONS
@@ -131,14 +145,16 @@ alertcondition(long_flag, "Long Flag", "RSI crossed above SMA in lower zone - wa
 alertcondition(short_flag, "Short Flag", "RSI crossed below SMA in upper zone - watching for MACD confirmation")
 alertcondition(long_entry, "Long Entry", "LONG ENTRY: MACD confirmed the long setup")
 alertcondition(short_entry, "Short Entry", "SHORT ENTRY: MACD confirmed the short setup")
-alertcondition(exit_long, "Exit Long", "EXIT LONG: RSI/SMA crossover")
-alertcondition(exit_short, "Exit Short", "EXIT SHORT: RSI/SMA crossover")
+alertcondition(exit_long, "Exit Long", "EXIT LONG: Position closed")
+alertcondition(exit_short, "Exit Short", "EXIT SHORT: Position closed")
+alertcondition(smma_exit_long, "SMMA Exit Long", "EXIT LONG: Candle closed below SMMA")
+alertcondition(smma_exit_short, "SMMA Exit Short", "EXIT SHORT: Candle closed above SMMA")
 
 // ============================================================================
 // DASHBOARD (Optional - shows current status)
 // ============================================================================
 
-var table dashboard = table.new(position.top_right, 2, 6, border_width=1)
+var table dashboard = table.new(position.top_right, 2, 8, border_width=1)
 
 if barstate.islast
     // Header
@@ -161,8 +177,17 @@ if barstate.islast
     table.cell(dashboard, 0, 4, "Signal", bgcolor=color.new(color.yellow, 90))
     table.cell(dashboard, 1, 4, str.tostring(signal_line, "#.####"), bgcolor=color.new(color.yellow, 90))
 
+    // SMMA (if enabled)
+    if enable_smma_exit
+        table.cell(dashboard, 0, 5, "SMMA", bgcolor=color.new(color.purple, 90))
+        table.cell(dashboard, 1, 5, str.tostring(smma, "#.##"), bgcolor=color.new(color.purple, 90))
+        table.cell(dashboard, 0, 6, "Price vs SMMA", bgcolor=color.new(color.gray, 90))
+        smma_relation = close > smma ? "ABOVE" : close < smma ? "BELOW" : "AT"
+        table.cell(dashboard, 1, 6, smma_relation, bgcolor=color.new(color.gray, 90))
+
     // Status
+    row_offset = enable_smma_exit ? 7 : 5
     status_text = long_flag ? "LONG FLAG" : short_flag ? "SHORT FLAG" : "NO FLAG"
     status_color = long_flag ? color.green : short_flag ? color.red : color.gray
-    table.cell(dashboard, 0, 5, "Status", bgcolor=color.new(status_color, 90))
-    table.cell(dashboard, 1, 5, status_text, bgcolor=color.new(status_color, 90))
+    table.cell(dashboard, 0, row_offset, "Status", bgcolor=color.new(status_color, 90))
+    table.cell(dashboard, 1, row_offset, status_text, bgcolor=color.new(status_color, 90))

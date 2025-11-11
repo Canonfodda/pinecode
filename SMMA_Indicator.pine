@@ -1,0 +1,45 @@
+//@version=6
+indicator("SMMA Exit Indicator", overlay=true)
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+
+smma_length = input.int(50, "SMMA Length", minval=1, tooltip="Smoothed Moving Average length")
+show_exit_zones = input.bool(true, "Highlight Exit Zones", tooltip="Highlight when candles close through SMMA")
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+
+// SMMA Calculation (Smoothed Moving Average - also known as RMA)
+smma = ta.rma(close, smma_length)
+
+// Exit Conditions Detection
+// LONG Exit: Candle open AND close below SMMA
+long_exit_signal = open < smma and close < smma
+
+// SHORT Exit: Candle open AND close above SMMA
+short_exit_signal = open > smma and close > smma
+
+// ============================================================================
+// VISUALIZATIONS
+// ============================================================================
+
+// Plot SMMA
+plot(smma, "SMMA", color=color.new(color.purple, 0), linewidth=2)
+
+// Highlight exit zones
+bgcolor(show_exit_zones and long_exit_signal ? color.new(color.red, 85) : na, title="Long Exit Zone")
+bgcolor(show_exit_zones and short_exit_signal ? color.new(color.green, 85) : na, title="Short Exit Zone")
+
+// Plot exit signals
+plotshape(show_exit_zones and long_exit_signal, "Long Exit", shape.xcross, location.location_abovebar, color.new(color.red, 0), size=size.tiny, text="L Exit")
+plotshape(show_exit_zones and short_exit_signal, "Short Exit", shape.xcross, location.location_belowbar, color.new(color.green, 0), size=size.tiny, text="S Exit")
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+
+alertcondition(long_exit_signal, "SMMA Long Exit", "Candle closed below SMMA - LONG EXIT signal")
+alertcondition(short_exit_signal, "SMMA Short Exit", "Candle closed above SMMA - SHORT EXIT signal")
