@@ -20,11 +20,13 @@ rsi_length = input.int(14, "RSI Length", minval=1)
 rsi_sma_length = input.int(14, "RSI SMA Length", minval=1)
 rsi_lower_zone = input.int(50, "RSI Lower Zone (0 to this)", minval=0, maxval=100)
 rsi_upper_zone = input.int(50, "RSI Upper Zone (this to 100)", minval=0, maxval=100)
+rsi_timeframe = input.timeframe("", "RSI Timeframe", tooltip="Timeframe for RSI calculation. Empty = chart timeframe")
 
 // MACD Settings
 macd_fast = input.int(12, "MACD Fast Length", minval=1)
 macd_slow = input.int(26, "MACD Slow Length", minval=1)
 macd_signal = input.int(9, "MACD Signal Length", minval=1)
+macd_timeframe = input.timeframe("", "MACD Timeframe", tooltip="Timeframe for MACD calculation. Empty = chart timeframe")
 
 // Exit Settings
 enable_rsi_exit = input.bool(true, "Exit on RSI/SMA Crossback", tooltip="When enabled, positions exit when RSI crosses back over its SMA. When disabled, you'll need another exit method.")
@@ -39,12 +41,13 @@ show_rsi_panel = input.bool(true, "Show RSI Panel")
 // INDICATOR CALCULATIONS
 // ============================================================================
 
-// RSI Calculation
-rsi = ta.rsi(close, rsi_length)
-rsi_sma = ta.sma(rsi, rsi_sma_length)
+// RSI Calculation (with optional multi-timeframe)
+rsi_tf = rsi_timeframe == "" ? timeframe.period : rsi_timeframe
+[rsi, rsi_sma] = request.security(syminfo.tickerid, rsi_tf, [ta.rsi(close, rsi_length), ta.sma(ta.rsi(close, rsi_length), rsi_sma_length)], lookahead=barmerge.lookahead_off)
 
-// MACD Calculation
-[macd_line, signal_line, macd_histogram] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+// MACD Calculation (with optional multi-timeframe)
+macd_tf = macd_timeframe == "" ? timeframe.period : macd_timeframe
+[macd_line, signal_line, macd_histogram] = request.security(syminfo.tickerid, macd_tf, ta.macd(close, macd_fast, macd_slow, macd_signal), lookahead=barmerge.lookahead_off)
 
 // Moving Average Calculation (selectable type)
 ma_value = switch ma_type
