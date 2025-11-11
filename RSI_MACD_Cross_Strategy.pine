@@ -34,6 +34,9 @@ enable_smma_exit = input.bool(false, "Exit on MA Candle Close", tooltip="LONG ex
 ma_type = input.string("RMA", "MA Type", options=["SMA", "EMA", "WMA", "RMA", "HMA", "VWMA"], tooltip="Moving Average type for exit condition")
 smma_length = input.int(50, "MA Length", minval=1, tooltip="Length for the Moving Average exit condition")
 
+// Trade Direction
+trade_direction = input.string("Both", "Trade Direction", options=["Both", "Long Only", "Short Only"], tooltip="Select which trade directions to allow")
+
 // Visual Settings
 show_rsi_panel = input.bool(true, "Show RSI Panel")
 
@@ -123,9 +126,13 @@ smma_reversal_long = enable_smma_exit and smma_exit_short and (rsi > rsi_sma or 
 // LONG exit → SHORT entry: if RSI < RSI_SMA OR MACD < Signal
 smma_reversal_short = enable_smma_exit and smma_exit_long and (rsi < rsi_sma or macd_line < signal_line)
 
-// Combined Entry Conditions (normal flag-based OR SMMA reversal)
-long_entry_combined = long_entry or smma_reversal_long
-short_entry_combined = short_entry or smma_reversal_short
+// Trade Direction Filter
+allow_long = trade_direction == "Both" or trade_direction == "Long Only"
+allow_short = trade_direction == "Both" or trade_direction == "Short Only"
+
+// Combined Entry Conditions (normal flag-based OR SMMA reversal) with direction filter
+long_entry_combined = (long_entry or smma_reversal_long) and allow_long
+short_entry_combined = (short_entry or smma_reversal_short) and allow_short
 
 // ============================================================================
 // STRATEGY EXECUTION
