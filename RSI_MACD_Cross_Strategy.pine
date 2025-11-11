@@ -35,7 +35,7 @@ ma_type = input.string("RMA", "MA Type", options=["SMA", "EMA", "WMA", "RMA", "H
 smma_length = input.int(50, "MA Length", minval=1, tooltip="Length for the Moving Average exit condition")
 
 // Trade Direction
-trade_direction = input.string("Both", "Trade Direction", options=["Both", "Long Only", "Short Only"], tooltip="Select which trade directions to allow")
+trade_direction = input.string("Both", "Trade Direction", options=["Both", "Long Only", "Short Only", "MA Direction"], tooltip="Select which trade directions to allow. MA Direction: Long when price > MA, Short when price < MA")
 
 // Visual Settings
 show_rsi_panel = input.bool(true, "Show RSI Panel")
@@ -127,8 +127,19 @@ smma_reversal_long = enable_smma_exit and smma_exit_short and (rsi > rsi_sma or 
 smma_reversal_short = enable_smma_exit and smma_exit_long and (rsi < rsi_sma or macd_line < signal_line)
 
 // Trade Direction Filter
-allow_long = trade_direction == "Both" or trade_direction == "Long Only"
-allow_short = trade_direction == "Both" or trade_direction == "Short Only"
+allow_long = switch trade_direction
+    "Both" => true
+    "Long Only" => true
+    "Short Only" => false
+    "MA Direction" => close > smma
+    => true
+
+allow_short = switch trade_direction
+    "Both" => true
+    "Long Only" => false
+    "Short Only" => true
+    "MA Direction" => close < smma
+    => true
 
 // Combined Entry Conditions (normal flag-based OR SMMA reversal) with direction filter
 long_entry_combined = (long_entry or smma_reversal_long) and allow_long
