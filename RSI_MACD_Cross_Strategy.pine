@@ -1,0 +1,173 @@
+//@version=6
+strategy("RSI-SMA and MACD Cross Strategy",
+         overlay=false,
+         initial_capital=10000,
+         default_qty_type=strategy.percent_of_equity,
+         default_qty_value=100,
+         commission_type=strategy.commission.percent,
+         commission_value=0.1)
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+
+// RSI Settings
+rsi_length = input.int(14, "RSI Length", minval=1)
+rsi_sma_length = input.int(14, "RSI SMA Length", minval=1)
+rsi_lower_zone = input.int(50, "RSI Lower Zone (0 to this)", minval=0, maxval=100)
+rsi_upper_zone = input.int(50, "RSI Upper Zone (this to 100)", minval=0, maxval=100)
+
+// MACD Settings
+macd_fast = input.int(12, "MACD Fast Length", minval=1)
+macd_slow = input.int(26, "MACD Slow Length", minval=1)
+macd_signal = input.int(9, "MACD Signal Length", minval=1)
+
+// Visual Settings
+show_rsi_panel = input.bool(true, "Show RSI Panel")
+show_macd_panel = input.bool(true, "Show MACD Panel")
+
+// ============================================================================
+// INDICATOR CALCULATIONS
+// ============================================================================
+
+// RSI Calculation
+rsi = ta.rsi(close, rsi_length)
+rsi_sma = ta.sma(rsi, rsi_sma_length)
+
+// MACD Calculation
+[macd_line, signal_line, macd_histogram] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+
+// ============================================================================
+// SIGNAL LOGIC
+// ============================================================================
+
+// RSI Crosses
+rsi_cross_above_sma = ta.crossover(rsi, rsi_sma)
+rsi_cross_below_sma = ta.crossunder(rsi, rsi_sma)
+rsi_cross_any = rsi_cross_above_sma or rsi_cross_below_sma
+
+// MACD Crosses
+macd_cross_above = ta.crossover(macd_line, signal_line)
+macd_cross_below = ta.crossunder(macd_line, signal_line)
+
+// Track potential trade flags
+var bool long_flag = false
+var bool short_flag = false
+
+// LONG Flag: RSI in lower zone (0-50) AND RSI crosses above SMA
+if rsi <= rsi_lower_zone and rsi_cross_above_sma
+    long_flag := true
+    short_flag := false
+
+// SHORT Flag: RSI in upper zone (50-100) AND RSI crosses below SMA
+if rsi >= rsi_upper_zone and rsi_cross_below_sma
+    short_flag := true
+    long_flag := false
+
+// Clear flags on any RSI/SMA cross (for exit logic)
+if rsi_cross_any and strategy.position_size != 0
+    long_flag := false
+    short_flag := false
+
+// Entry Conditions
+long_entry = long_flag and macd_cross_above
+short_entry = short_flag and macd_cross_below
+
+// Exit Conditions
+exit_long = strategy.position_size > 0 and rsi_cross_any
+exit_short = strategy.position_size < 0 and rsi_cross_any
+
+// ============================================================================
+// STRATEGY EXECUTION
+// ============================================================================
+
+// Long Entry
+if long_entry
+    strategy.entry("Long", strategy.long)
+    long_flag := false  // Clear flag after entry
+
+// Short Entry
+if short_entry
+    strategy.entry("Short", strategy.short)
+    short_flag := false  // Clear flag after entry
+
+// Exits
+if exit_long
+    strategy.close("Long", comment="RSI/SMA Cross Exit")
+
+if exit_short
+    strategy.close("Short", comment="RSI/SMA Cross Exit")
+
+// ============================================================================
+// VISUALIZATIONS
+// ============================================================================
+
+// RSI Panel
+if show_rsi_panel
+    // Plot RSI and its SMA
+    plot(rsi, "RSI", color=color.new(color.blue, 0), linewidth=2)
+    plot(rsi_sma, "RSI SMA", color=color.new(color.orange, 0), linewidth=2)
+
+    // Plot zones
+    hline(rsi_lower_zone, "Lower Zone", color=color.new(color.gray, 50), linestyle=hline.style_dashed)
+    hline(rsi_upper_zone, "Upper Zone", color=color.new(color.gray, 50), linestyle=hline.style_dashed)
+    hline(50, "Middle", color=color.new(color.gray, 70), linestyle=hline.style_dotted)
+
+    // Highlight zones
+    bgcolor(rsi <= rsi_lower_zone ? color.new(color.green, 95) : na, title="Long Zone")
+    bgcolor(rsi >= rsi_upper_zone ? color.new(color.red, 95) : na, title="Short Zone")
+
+// Plot entry signals on RSI panel
+plotshape(long_flag, "Long Flag", shape.circle, location.location_absolute, color.new(color.green, 30), size=size.tiny, offset=0, text="L Flag")
+plotshape(short_flag, "Short Flag", shape.circle, location.location_absolute, color.new(color.red, 30), size=size.tiny, offset=0, text="S Flag")
+plotshape(long_entry, "Long Entry", shape.triangleup, location.location_absolute, color.new(color.green, 0), size=size.small, offset=0, text="LONG")
+plotshape(short_entry, "Short Entry", shape.triangledown, location.location_absolute, color.new(color.red, 0), size=size.small, offset=0, text="SHORT")
+
+// MACD Panel (in separate panel)
+// Note: To show MACD in a separate panel, you would typically create a separate indicator
+// For now, we'll add a comment about viewing MACD
+// You can add the MACD indicator separately to your chart
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+
+alertcondition(long_flag, "Long Flag", "RSI crossed above SMA in lower zone - watching for MACD confirmation")
+alertcondition(short_flag, "Short Flag", "RSI crossed below SMA in upper zone - watching for MACD confirmation")
+alertcondition(long_entry, "Long Entry", "LONG ENTRY: MACD confirmed the long setup")
+alertcondition(short_entry, "Short Entry", "SHORT ENTRY: MACD confirmed the short setup")
+alertcondition(exit_long, "Exit Long", "EXIT LONG: RSI/SMA crossover")
+alertcondition(exit_short, "Exit Short", "EXIT SHORT: RSI/SMA crossover")
+
+// ============================================================================
+// DASHBOARD (Optional - shows current status)
+// ============================================================================
+
+var table dashboard = table.new(position.top_right, 2, 6, border_width=1)
+
+if barstate.islast
+    // Header
+    table.cell(dashboard, 0, 0, "Indicator", bgcolor=color.new(color.gray, 80), text_color=color.white)
+    table.cell(dashboard, 1, 0, "Value", bgcolor=color.new(color.gray, 80), text_color=color.white)
+
+    // RSI
+    table.cell(dashboard, 0, 1, "RSI", bgcolor=color.new(color.blue, 90))
+    table.cell(dashboard, 1, 1, str.tostring(rsi, "#.##"), bgcolor=color.new(color.blue, 90))
+
+    // RSI SMA
+    table.cell(dashboard, 0, 2, "RSI SMA", bgcolor=color.new(color.orange, 90))
+    table.cell(dashboard, 1, 2, str.tostring(rsi_sma, "#.##"), bgcolor=color.new(color.orange, 90))
+
+    // MACD
+    table.cell(dashboard, 0, 3, "MACD", bgcolor=color.new(color.purple, 90))
+    table.cell(dashboard, 1, 3, str.tostring(macd_line, "#.####"), bgcolor=color.new(color.purple, 90))
+
+    // Signal
+    table.cell(dashboard, 0, 4, "Signal", bgcolor=color.new(color.yellow, 90))
+    table.cell(dashboard, 1, 4, str.tostring(signal_line, "#.####"), bgcolor=color.new(color.yellow, 90))
+
+    // Status
+    status_text = long_flag ? "LONG FLAG" : short_flag ? "SHORT FLAG" : "NO FLAG"
+    status_color = long_flag ? color.green : short_flag ? color.red : color.gray
+    table.cell(dashboard, 0, 5, "Status", bgcolor=color.new(status_color, 90))
+    table.cell(dashboard, 1, 5, status_text, bgcolor=color.new(status_color, 90))

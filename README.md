@@ -1,219 +1,365 @@
-# pinecode
+# PineCode - RSI-SMA & MACD Crossover Strategy
 
-RSI and MACD Crossover Trading Strategy
+A TradingView PineScript v6 strategy that combines RSI with SMA overlay and MACD crossover confirmation for generating precise trading signals.
 
-A Python-based technical analysis library that implements RSI (Relative Strength Index) and MACD (Moving Average Convergence Divergence) indicators with crossover detection for generating trading signals.
+## Strategy Overview
 
-## Features
+This is a **two-step confirmation strategy** that reduces false signals by requiring both RSI and MACD agreement before entering trades.
 
-- **RSI Calculation**: Compute Relative Strength Index with customizable periods
-- **MACD Calculation**: Calculate MACD line, signal line, and histogram
-- **Crossover Detection**: Identify bullish and bearish crossovers for both indicators
-- **Multiple Strategies**: Choose from different signal generation strategies
-- **Backtesting**: Simple backtesting functionality to evaluate strategy performance
-- **Clean API**: Easy-to-use functions and classes
+### Entry Logic
 
-## Installation
+#### LONG Entry (2 Steps)
+1. **Flag Step**: RSI (in 0-50 zone) crosses **above** its SMA → Flag potential long
+2. **Confirmation Step**: MACD crosses **above** Signal line → Enter long
 
-1. Clone this repository
-2. Install dependencies:
+#### SHORT Entry (2 Steps)
+1. **Flag Step**: RSI (in 50-100 zone) crosses **below** its SMA → Flag potential short
+2. **Confirmation Step**: MACD crosses **below** Signal line → Enter short
 
-```bash
-pip install -r requirements.txt
+### Exit Logic
+
+**Exit for both Long and Short**: When RSI crosses back over its SMA (in either direction)
+
+## Visual Explanation
+
+```
+LONG SETUP:
+─────────────────────────────────────────────────────
+RSI Panel (0-100):
+    50 ├─────────────────────────────  [Upper Zone]
+       │         RSI crosses
+       │         above SMA ↑
+    30 ├─────────────────────────────  [Lower Zone Flag]
+       │    ●  ← Flag set here
+     0 └─────────────────────────────
+
+MACD Panel:
+       │
+     0 ├──────X──────────────────────  [Zero Line]
+       │       ↑ MACD crosses above
+       │         Signal → ENTER LONG ✓
+
+Exit when: RSI crosses SMA again (either direction)
+
+SHORT SETUP:
+─────────────────────────────────────────────────────
+RSI Panel (0-100):
+   100 ├─────────────────────────────
+       │         RSI crosses
+       │         below SMA ↓
+    50 ├─────────────────────────────  [Upper Zone Flag]
+       │    ●  ← Flag set here
+     0 └─────────────────────────────
+
+MACD Panel:
+       │       ↓ MACD crosses below
+     0 ├──────X──────────────────────  [Zero Line]
+       │         Signal → ENTER SHORT ✓
+
+Exit when: RSI crosses SMA again (either direction)
 ```
 
-## Quick Start
+## Files
 
-```python
-from strategy import RSIMACDStrategy
-import pandas as pd
+### 1. `RSI_MACD_Cross_Strategy.pine`
+Main strategy file with:
+- Complete entry/exit logic
+- Visual signals and flags
+- Real-time dashboard
+- Configurable parameters
+- Built-in alerts
 
-# Your price data
-prices = pd.Series([100, 102, 101, 105, 107, 106, ...])
+### 2. `MACD_Indicator.pine` (Optional)
+Companion MACD indicator for separate panel visualization:
+- MACD line and Signal line
+- Histogram display
+- Crossover highlights
+- Sync with strategy alerts
 
-# Initialize strategy
-strategy = RSIMACDStrategy()
+## Installation & Usage
 
-# Get latest signal
-signal = strategy.get_latest_signal(prices)
-print(f"Signal: {signal['signal']}")  # BUY, SELL, or HOLD
+### TradingView Setup
 
-# Run backtest
-results = strategy.backtest(prices, initial_capital=10000)
-print(f"Return: {results['return_pct']:.2f}%")
+1. **Open TradingView** and go to the Pine Editor
+2. **Copy the strategy code** from `RSI_MACD_Cross_Strategy.pine`
+3. **Paste into Pine Editor** and click "Add to Chart"
+4. **Optional**: Add `MACD_Indicator.pine` in a separate panel below
+
+### Recommended Layout
+
+```
+┌─────────────────────────────────────┐
+│     Main Chart (Price)              │
+│     (Strategy plots here)           │
+├─────────────────────────────────────┤
+│     RSI Panel                       │
+│     - RSI line (blue)               │
+│     - RSI SMA (orange)              │
+│     - Zones highlighted             │
+│     - Entry signals shown           │
+├─────────────────────────────────────┤
+│     MACD Panel (optional)           │
+│     - MACD vs Signal                │
+│     - Histogram                     │
+│     - Crossover markers             │
+└─────────────────────────────────────┘
 ```
 
-## Indicators
+## Configuration Parameters
 
-### RSI (Relative Strength Index)
+### RSI Settings
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| RSI Length | 14 | Period for RSI calculation |
+| RSI SMA Length | 14 | SMA period applied to RSI |
+| Lower Zone | 50 | Upper boundary of long zone (0 to this value) |
+| Upper Zone | 50 | Lower boundary of short zone (this to 100) |
 
-The RSI is a momentum oscillator that measures the speed and magnitude of price changes. Values range from 0 to 100.
+### MACD Settings
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Fast Length | 12 | Fast EMA period |
+| Slow Length | 26 | Slow EMA period |
+| Signal Length | 9 | Signal line period |
 
-- **Oversold**: RSI < 30 (potential buy signal)
-- **Overbought**: RSI > 70 (potential sell signal)
+### Strategy Settings
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Initial Capital | 10,000 | Starting capital for backtest |
+| Order Size | 100% | Percentage of equity per trade |
+| Commission | 0.1% | Commission per trade |
 
-### MACD (Moving Average Convergence Divergence)
+## Visual Indicators
 
-MACD shows the relationship between two moving averages of prices.
+### On RSI Panel
 
-- **MACD Line**: Fast EMA - Slow EMA
-- **Signal Line**: EMA of MACD line
-- **Histogram**: MACD line - Signal line
+- **Blue Line**: RSI value
+- **Orange Line**: SMA of RSI
+- **Green Background**: Long zone (RSI 0-50)
+- **Red Background**: Short zone (RSI 50-100)
+- **Green Circle ("L Flag")**: Long trade flagged
+- **Red Circle ("S Flag")**: Short trade flagged
+- **Green Triangle Up ("LONG")**: Long entry executed
+- **Red Triangle Down ("SHORT")**: Short entry executed
 
-**Crossover Signals**:
-- **Bullish**: MACD crosses above signal line (buy)
-- **Bearish**: MACD crosses below signal line (sell)
+### Dashboard (Top Right)
 
-## Usage
+Real-time display showing:
+- Current RSI value
+- Current RSI SMA value
+- Current MACD value
+- Current Signal line value
+- Current flag status (LONG FLAG / SHORT FLAG / NO FLAG)
 
-### Basic Indicator Calculation
+## Alerts
 
-```python
-from indicators import calculate_rsi, calculate_macd
+The strategy includes 6 alert conditions:
 
-# Calculate RSI
-rsi = calculate_rsi(prices, period=14)
+1. **Long Flag**: RSI crossed above SMA in lower zone
+2. **Short Flag**: RSI crossed below SMA in upper zone
+3. **Long Entry**: MACD confirmed - long trade entered
+4. **Short Entry**: MACD confirmed - short trade entered
+5. **Exit Long**: RSI/SMA crossover - long position closed
+6. **Exit Short**: RSI/SMA crossover - short position closed
 
-# Calculate MACD
-macd_data = calculate_macd(prices, fast_period=12, slow_period=26, signal_period=9)
+### Setting Up Alerts
+
+1. Right-click the strategy on your chart
+2. Select "Add Alert"
+3. Choose the desired alert condition
+4. Configure notification method (popup, email, webhook, etc.)
+
+## Strategy Logic Flow
+
+```
+┌─────────────────────────────────────────────────┐
+│  Start                                          │
+└────────────┬────────────────────────────────────┘
+             │
+             ▼
+    ┌────────────────────┐
+    │  Check RSI & SMA   │
+    └────────┬───────────┘
+             │
+      ┌──────┴──────┐
+      │             │
+      ▼             ▼
+   RSI 0-50      RSI 50-100
+   RSI > SMA     RSI < SMA
+      │             │
+   Set LONG      Set SHORT
+   FLAG          FLAG
+      │             │
+      └──────┬──────┘
+             │
+             ▼
+    ┌────────────────────┐
+    │  Wait for MACD     │
+    │  Confirmation      │
+    └────────┬───────────┘
+             │
+      ┌──────┴──────┐
+      │             │
+      ▼             ▼
+   MACD >        MACD <
+   Signal        Signal
+      │             │
+   ENTER         ENTER
+   LONG          SHORT
+      │             │
+      └──────┬──────┘
+             │
+             ▼
+    ┌────────────────────┐
+    │  Monitor Position  │
+    └────────┬───────────┘
+             │
+             ▼
+    ┌────────────────────┐
+    │  RSI crosses SMA?  │
+    │  (either direction)│
+    └────────┬───────────┘
+             │
+             ▼
+    ┌────────────────────┐
+    │  EXIT POSITION     │
+    │  Clear Flags       │
+    └────────────────────┘
 ```
 
-### Crossover Detection
+## Example Scenarios
 
-```python
-from indicators import detect_rsi_crossover, detect_macd_crossover
+### Scenario 1: Successful Long Trade
 
-# Detect RSI crossovers
-rsi_signals = detect_rsi_crossover(rsi, oversold=30, overbought=70)
-
-# Detect MACD crossovers
-macd_signals = detect_macd_crossover(macd_data)
+```
+1. RSI = 40 (in 0-50 zone)
+2. RSI crosses above RSI SMA → LONG FLAG SET ⚑
+3. Wait for MACD...
+4. MACD crosses above Signal → ENTER LONG ✓
+5. Position held...
+6. RSI crosses back below RSI SMA → EXIT LONG ✓
 ```
 
-### Strategy Implementation
+### Scenario 2: Failed Setup (No Entry)
 
-```python
-from strategy import RSIMACDStrategy
-
-# Initialize with custom parameters
-strategy = RSIMACDStrategy(
-    rsi_period=14,
-    rsi_oversold=30,
-    rsi_overbought=70,
-    macd_fast=12,
-    macd_slow=26,
-    macd_signal=9
-)
-
-# Analyze price data
-analysis = strategy.analyze(prices)
-
-# Generate signals with different strategies
-signals = strategy.generate_signals(prices, strategy='combined')
+```
+1. RSI = 35 (in 0-50 zone)
+2. RSI crosses above RSI SMA → LONG FLAG SET ⚑
+3. Wait for MACD...
+4. MACD does NOT cross Signal
+5. RSI crosses back below SMA → Flag cleared, no trade taken
 ```
 
-## Strategy Types
+### Scenario 3: Successful Short Trade
 
-1. **rsi_only**: Signals based only on RSI crossovers
-2. **macd_only**: Signals based only on MACD crossovers
-3. **combined**: Signal when either RSI or MACD triggers (more signals)
-4. **confirmation**: Signal only when both indicators agree (fewer, higher confidence signals)
-
-## Example
-
-Run the example script to see the strategy in action:
-
-```bash
-python example.py
+```
+1. RSI = 65 (in 50-100 zone)
+2. RSI crosses below RSI SMA → SHORT FLAG SET ⚑
+3. Wait for MACD...
+4. MACD crosses below Signal → ENTER SHORT ✓
+5. Position held...
+6. RSI crosses back above RSI SMA → EXIT SHORT ✓
 ```
 
-This will:
-- Generate sample price data
-- Calculate RSI and MACD indicators
-- Display signals from different strategies
-- Show the latest trading signal
-- Run a backtest and display results
+## Backtesting
 
-## API Reference
+The strategy includes built-in backtesting capabilities:
 
-### RSIMACDStrategy Class
+1. **Apply strategy to chart**
+2. **Open Strategy Tester** (bottom panel)
+3. **View performance metrics**:
+   - Net Profit
+   - Total Trades
+   - Win Rate
+   - Profit Factor
+   - Max Drawdown
+   - And more...
 
-#### `__init__(rsi_period=14, rsi_oversold=30, rsi_overbought=70, macd_fast=12, macd_slow=26, macd_signal=9)`
+### Optimization Tips
 
-Initialize the strategy with custom parameters.
+- Test different RSI SMA lengths (10, 14, 20, 30)
+- Adjust zone boundaries (try 40/60 instead of 50/50)
+- Test on multiple timeframes
+- Compare different MACD settings
+- Use on different assets (stocks, crypto, forex)
 
-#### `analyze(prices)`
+## Best Practices
 
-Analyze price data and return DataFrame with all indicators and signals.
-
-**Returns**: pandas DataFrame with columns:
-- `price`: Original prices
-- `rsi`: RSI values
-- `macd`, `macd_signal`, `macd_histogram`: MACD components
-- `rsi_buy`, `rsi_sell`: RSI signals
-- `macd_bullish`, `macd_bearish`: MACD crossover signals
-- `macd_zero_bullish`, `macd_zero_bearish`: MACD zero-line crossovers
-
-#### `generate_signals(prices, strategy='combined')`
-
-Generate buy/sell signals based on selected strategy.
-
-**Parameters**:
-- `prices`: Price data (pandas Series or list)
-- `strategy`: One of 'rsi_only', 'macd_only', 'combined', 'confirmation'
-
-**Returns**: DataFrame with `buy` and `sell` signal columns
-
-#### `get_latest_signal(prices, strategy='combined')`
-
-Get the most recent trading signal.
-
-**Returns**: dict with:
-- `signal`: 'BUY', 'SELL', or 'HOLD'
-- `price`: Current price
-- `rsi`: Current RSI value
-- `macd`, `macd_signal`, `macd_histogram`: Current MACD values
-
-#### `backtest(prices, initial_capital=10000, strategy='combined')`
-
-Run a simple backtest of the strategy.
-
-**Returns**: dict with:
-- `initial_capital`: Starting capital
-- `final_capital`: Ending capital
-- `return_pct`: Return percentage
-- `num_trades`: Number of trades executed
-- `trades`: List of trade details
-
-## Technical Details
-
-### RSI Calculation
-
-1. Calculate price changes (delta)
-2. Separate gains and losses
-3. Calculate average gains and losses over period
-4. Compute RS (Relative Strength) = Average Gain / Average Loss
-5. Calculate RSI = 100 - (100 / (1 + RS))
-
-### MACD Calculation
-
-1. Calculate fast EMA (default: 12 periods)
-2. Calculate slow EMA (default: 26 periods)
-3. MACD Line = Fast EMA - Slow EMA
-4. Signal Line = EMA of MACD Line (default: 9 periods)
-5. Histogram = MACD Line - Signal Line
+1. **Use on trending markets**: This strategy works best in trending conditions
+2. **Combine with trend filters**: Consider adding a longer-term MA filter
+3. **Respect timeframes**: Higher timeframes (4H, Daily) typically more reliable
+4. **Risk management**: Use stop losses even though not built into this strategy
+5. **Test thoroughly**: Backtest extensively before live trading
+6. **Paper trade first**: Verify performance in real-time before risking capital
 
 ## Limitations
 
-- This is a simple implementation for educational and research purposes
-- Backtest results do not account for transaction costs, slippage, or market impact
-- Past performance does not guarantee future results
-- Always validate strategies with real historical data and paper trading before live trading
+- **Whipsaws in ranging markets**: May generate false signals in choppy conditions
+- **No built-in stop loss**: Consider adding risk management
+- **No position sizing**: Currently uses fixed percentage
+- **Lag from confirmations**: Two-step process may miss fast moves
+- **Not suitable for scalping**: Better for swing trading
+
+## Customization Ideas
+
+### Add Stop Loss & Take Profit
+```pinescript
+// Add after entry
+if strategy.position_size > 0
+    strategy.exit("Exit Long", "Long", stop=stop_price, limit=take_profit_price)
+```
+
+### Add Trend Filter
+```pinescript
+// Only trade in direction of 200 SMA
+ma200 = ta.sma(close, 200)
+allow_long = close > ma200
+allow_short = close < ma200
+```
+
+### Add Volume Filter
+```pinescript
+// Only enter if volume confirms
+volume_avg = ta.sma(volume, 20)
+high_volume = volume > volume_avg * 1.5
+long_entry = long_flag and macd_cross_above and high_volume
+```
+
+## Version History
+
+- **v1.0** - Initial PineScript v6 implementation
+  - RSI with SMA overlay
+  - Two-step confirmation logic
+  - MACD crossover confirmation
+  - Visual signals and dashboard
+  - Complete alert system
+
+## Support & Resources
+
+- **PineScript Documentation**: https://www.tradingview.com/pine-script-docs/
+- **TradingView Community**: https://www.tradingview.com/scripts/
+- **Strategy Testing**: Use TradingView's Strategy Tester for backtesting
+
+## Disclaimer
+
+This strategy is for educational and informational purposes only. Past performance does not guarantee future results. Always:
+- Test thoroughly before using real money
+- Understand the risks of trading
+- Never risk more than you can afford to lose
+- Consider consulting a financial advisor
+- Use proper risk management
+
+Trading involves substantial risk of loss and is not suitable for every investor.
 
 ## License
 
-This project is open source and available for educational purposes.
+This code is open source and provided for educational purposes.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit pull requests or open issues.
+Improvements and suggestions are welcome! Areas for enhancement:
+- Additional filters
+- Risk management features
+- Position sizing algorithms
+- Multi-timeframe analysis
+- Automated optimization

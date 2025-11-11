@@ -1,0 +1,57 @@
+//@version=6
+indicator("MACD for RSI-MACD Strategy", overlay=false)
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+
+macd_fast = input.int(12, "MACD Fast Length", minval=1)
+macd_slow = input.int(26, "MACD Slow Length", minval=1)
+macd_signal = input.int(9, "MACD Signal Length", minval=1)
+
+// Visual Settings
+show_histogram = input.bool(true, "Show Histogram")
+show_zero_line = input.bool(true, "Show Zero Line")
+highlight_crosses = input.bool(true, "Highlight Crossovers")
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+
+[macd_line, signal_line, macd_histogram] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+
+// Crossover Detection
+macd_cross_above = ta.crossover(macd_line, signal_line)
+macd_cross_below = ta.crossunder(macd_line, signal_line)
+
+// ============================================================================
+// VISUALIZATIONS
+// ============================================================================
+
+// MACD Line
+plot(macd_line, "MACD Line", color=color.new(color.blue, 0), linewidth=2)
+
+// Signal Line
+plot(signal_line, "Signal Line", color=color.new(color.orange, 0), linewidth=2)
+
+// Histogram
+histogram_color = macd_histogram >= 0 ? color.new(color.green, 50) : color.new(color.red, 50)
+plot(show_histogram ? macd_histogram : na, "Histogram", color=histogram_color, style=plot.style_columns, linewidth=3)
+
+// Zero Line
+hline(0, "Zero Line", color=show_zero_line ? color.new(color.gray, 50) : na, linestyle=hline.style_solid, linewidth=1)
+
+// Crossover Highlights
+bgcolor(highlight_crosses and macd_cross_above ? color.new(color.green, 90) : na, title="Bullish Cross")
+bgcolor(highlight_crosses and macd_cross_below ? color.new(color.red, 90) : na, title="Bearish Cross")
+
+// Crossover Markers
+plotshape(highlight_crosses and macd_cross_above, "Bullish Cross", shape.triangleup, location.location_bottom, color.new(color.green, 0), size=size.small, text="▲")
+plotshape(highlight_crosses and macd_cross_below, "Bearish Cross", shape.triangledown, location.location_top, color.new(color.red, 0), size=size.small, text="▼")
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+
+alertcondition(macd_cross_above, "MACD Bullish Cross", "MACD crossed above Signal line - LONG confirmation")
+alertcondition(macd_cross_below, "MACD Bearish Cross", "MACD crossed below Signal line - SHORT confirmation")
