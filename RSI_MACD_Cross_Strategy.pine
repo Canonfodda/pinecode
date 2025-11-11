@@ -62,23 +62,26 @@ var bool long_flag = false
 var bool short_flag = false
 
 // LONG Flag: RSI in lower zone (0-50) AND RSI crosses above SMA
-if rsi <= rsi_lower_zone and rsi_cross_above_sma
+// Only set flag if not currently in a SHORT position
+if rsi <= rsi_lower_zone and rsi_cross_above_sma and strategy.position_size >= 0
     long_flag := true
     short_flag := false
 
 // SHORT Flag: RSI in upper zone (50-100) AND RSI crosses below SMA
-if rsi >= rsi_upper_zone and rsi_cross_below_sma
+// Only set flag if not currently in a LONG position
+if rsi >= rsi_upper_zone and rsi_cross_below_sma and strategy.position_size <= 0
     short_flag := true
     long_flag := false
 
-// Clear flags on any RSI/SMA cross (for exit logic)
+// Clear flags on any RSI/SMA cross (for exit logic with RSI exit enabled)
 if enable_rsi_exit and rsi_cross_any and strategy.position_size != 0
     long_flag := false
     short_flag := false
 
 // Entry Conditions
-long_entry = long_flag and macd_cross_above
-short_entry = short_flag and macd_cross_below
+// Additional safety: ensure not in opposite position
+long_entry = long_flag and macd_cross_above and strategy.position_size >= 0
+short_entry = short_flag and macd_cross_below and strategy.position_size <= 0
 
 // SMMA Exit Conditions
 // LONG: Exit when candle open AND close are both below SMMA
