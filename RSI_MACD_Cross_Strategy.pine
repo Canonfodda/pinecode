@@ -98,21 +98,23 @@ smma_exit_short = enable_smma_exit and strategy.position_size < 0 and open > smm
 exit_long = (enable_rsi_exit and strategy.position_size > 0 and rsi_cross_any) or smma_exit_long
 exit_short = (enable_rsi_exit and strategy.position_size < 0 and rsi_cross_any) or smma_exit_short
 
+// SMMA Reversal Entry Conditions
+// After SMMA exit, allow opposite entry with simplified conditions
+// SHORT exit → LONG entry: if RSI > RSI_SMA OR MACD > Signal
+smma_reversal_long = enable_smma_exit and smma_exit_short and (rsi > rsi_sma or macd_line > signal_line)
+
+// LONG exit → SHORT entry: if RSI < RSI_SMA OR MACD < Signal
+smma_reversal_short = enable_smma_exit and smma_exit_long and (rsi < rsi_sma or macd_line < signal_line)
+
+// Combined Entry Conditions (normal flag-based OR SMMA reversal)
+long_entry_combined = long_entry or smma_reversal_long
+short_entry_combined = short_entry or smma_reversal_short
+
 // ============================================================================
 // STRATEGY EXECUTION
 // ============================================================================
 
-// Long Entry
-if long_entry
-    strategy.entry("Long", strategy.long)
-    long_flag := false  // Clear flag after entry
-
-// Short Entry
-if short_entry
-    strategy.entry("Short", strategy.short)
-    short_flag := false  // Clear flag after entry
-
-// Exits
+// Exits (must be processed first)
 if exit_long
     exit_reason = smma_exit_long ? "SMMA Exit" : "RSI/SMA Exit"
     strategy.close("Long", comment=exit_reason)
@@ -120,6 +122,18 @@ if exit_long
 if exit_short
     exit_reason = smma_exit_short ? "SMMA Exit" : "RSI/SMA Exit"
     strategy.close("Short", comment=exit_reason)
+
+// Long Entry (normal or SMMA reversal)
+if long_entry_combined
+    entry_reason = smma_reversal_long ? "SMMA Reversal" : "Standard Entry"
+    strategy.entry("Long", strategy.long, comment=entry_reason)
+    long_flag := false  // Clear flag after entry
+
+// Short Entry (normal or SMMA reversal)
+if short_entry_combined
+    entry_reason = smma_reversal_short ? "SMMA Reversal" : "Standard Entry"
+    strategy.entry("Short", strategy.short, comment=entry_reason)
+    short_flag := false  // Clear flag after entry
 
 // ============================================================================
 // VISUALIZATIONS
@@ -143,6 +157,8 @@ plotshape(long_flag, "Long Flag", shape.circle, location.bottom, color.new(color
 plotshape(short_flag, "Short Flag", shape.circle, location.top, color.new(color.red, 30), size=size.tiny, text="S Flag")
 plotshape(long_entry, "Long Entry", shape.triangleup, location.bottom, color.new(color.green, 0), size=size.small, text="LONG")
 plotshape(short_entry, "Short Entry", shape.triangledown, location.top, color.new(color.red, 0), size=size.small, text="SHORT")
+plotshape(smma_reversal_long, "SMMA Reversal Long", shape.triangleup, location.bottom, color.new(color.lime, 0), size=size.normal, text="REV LONG")
+plotshape(smma_reversal_short, "SMMA Reversal Short", shape.triangledown, location.top, color.new(color.fuchsia, 0), size=size.normal, text="REV SHORT")
 
 // ============================================================================
 // ALERTS
@@ -156,6 +172,8 @@ alertcondition(exit_long, "Exit Long", "EXIT LONG: Position closed")
 alertcondition(exit_short, "Exit Short", "EXIT SHORT: Position closed")
 alertcondition(smma_exit_long, "SMMA Exit Long", "EXIT LONG: Candle closed below SMMA")
 alertcondition(smma_exit_short, "SMMA Exit Short", "EXIT SHORT: Candle closed above SMMA")
+alertcondition(smma_reversal_long, "SMMA Reversal Long", "REVERSAL LONG ENTRY: SMMA exit triggered with RSI>SMA or MACD>Signal")
+alertcondition(smma_reversal_short, "SMMA Reversal Short", "REVERSAL SHORT ENTRY: SMMA exit triggered with RSI<SMA or MACD<Signal")
 
 // ============================================================================
 // DASHBOARD (Optional - shows current status)
