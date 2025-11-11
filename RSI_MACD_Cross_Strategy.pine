@@ -80,8 +80,12 @@ if enable_rsi_exit and rsi_cross_any and strategy.position_size != 0
 
 // Entry Conditions
 // Additional safety: ensure not in opposite position
-long_entry = long_flag and macd_cross_above and strategy.position_size >= 0
-short_entry = short_flag and macd_cross_below and strategy.position_size <= 0
+// SMMA filter: when SMMA exit enabled, only enter LONG above SMMA and SHORT below SMMA
+smma_allows_long = not enable_smma_exit or close >= smma
+smma_allows_short = not enable_smma_exit or close <= smma
+
+long_entry = long_flag and macd_cross_above and strategy.position_size >= 0 and smma_allows_long
+short_entry = short_flag and macd_cross_below and strategy.position_size <= 0 and smma_allows_short
 
 // SMMA Exit Conditions
 // LONG: Exit when candle open AND close are both below SMMA
