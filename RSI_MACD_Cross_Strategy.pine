@@ -24,7 +24,6 @@ macd_signal = input.int(9, "MACD Signal Length", minval=1)
 
 // Visual Settings
 show_rsi_panel = input.bool(true, "Show RSI Panel")
-show_macd_panel = input.bool(true, "Show MACD Panel")
 
 // ============================================================================
 // INDICATOR CALCULATIONS
@@ -102,31 +101,24 @@ if exit_short
 // VISUALIZATIONS
 // ============================================================================
 
-// RSI Panel
-if show_rsi_panel
-    // Plot RSI and its SMA
-    plot(rsi, "RSI", color=color.new(color.blue, 0), linewidth=2)
-    plot(rsi_sma, "RSI SMA", color=color.new(color.orange, 0), linewidth=2)
+// Plot RSI and its SMA (conditionally visible)
+plot(show_rsi_panel ? rsi : na, "RSI", color=color.new(color.blue, 0), linewidth=2)
+plot(show_rsi_panel ? rsi_sma : na, "RSI SMA", color=color.new(color.orange, 0), linewidth=2)
 
-    // Plot zones
-    hline(rsi_lower_zone, "Lower Zone", color=color.new(color.gray, 50), linestyle=hline.style_dashed)
-    hline(rsi_upper_zone, "Upper Zone", color=color.new(color.gray, 50), linestyle=hline.style_dashed)
-    hline(50, "Middle", color=color.new(color.gray, 70), linestyle=hline.style_dotted)
+// Plot zones (always drawn but can be toggled off with show_rsi_panel)
+hline(rsi_lower_zone, "Lower Zone", color=color.new(color.gray, 50), linestyle=hline.style_dashed)
+hline(rsi_upper_zone, "Upper Zone", color=color.new(color.gray, 50), linestyle=hline.style_dashed)
+hline(50, "Middle", color=color.new(color.gray, 70), linestyle=hline.style_dotted)
 
-    // Highlight zones
-    bgcolor(rsi <= rsi_lower_zone ? color.new(color.green, 95) : na, title="Long Zone")
-    bgcolor(rsi >= rsi_upper_zone ? color.new(color.red, 95) : na, title="Short Zone")
+// Highlight zones
+bgcolor(rsi <= rsi_lower_zone ? color.new(color.green, 95) : na, title="Long Zone")
+bgcolor(rsi >= rsi_upper_zone ? color.new(color.red, 95) : na, title="Short Zone")
 
 // Plot entry signals on RSI panel
-plotshape(long_flag, "Long Flag", shape.circle, location.location_absolute, color.new(color.green, 30), size=size.tiny, offset=0, text="L Flag")
-plotshape(short_flag, "Short Flag", shape.circle, location.location_absolute, color.new(color.red, 30), size=size.tiny, offset=0, text="S Flag")
-plotshape(long_entry, "Long Entry", shape.triangleup, location.location_absolute, color.new(color.green, 0), size=size.small, offset=0, text="LONG")
-plotshape(short_entry, "Short Entry", shape.triangledown, location.location_absolute, color.new(color.red, 0), size=size.small, offset=0, text="SHORT")
-
-// MACD Panel (in separate panel)
-// Note: To show MACD in a separate panel, you would typically create a separate indicator
-// For now, we'll add a comment about viewing MACD
-// You can add the MACD indicator separately to your chart
+plotshape(long_flag, "Long Flag", shape.circle, location.location_bottom, color.new(color.green, 30), size=size.tiny, text="L Flag")
+plotshape(short_flag, "Short Flag", shape.circle, location.location_top, color.new(color.red, 30), size=size.tiny, text="S Flag")
+plotshape(long_entry, "Long Entry", shape.triangleup, location.location_bottom, color.new(color.green, 0), size=size.small, text="LONG")
+plotshape(short_entry, "Short Entry", shape.triangledown, location.location_top, color.new(color.red, 0), size=size.small, text="SHORT")
 
 // ============================================================================
 // ALERTS

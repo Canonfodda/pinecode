@@ -39,7 +39,8 @@ histogram_color = macd_histogram >= 0 ? color.new(color.green, 50) : color.new(c
 plot(show_histogram ? macd_histogram : na, "Histogram", color=histogram_color, style=plot.style_columns, linewidth=3)
 
 // Zero Line
-hline(0, "Zero Line", color=show_zero_line ? color.new(color.gray, 50) : na, linestyle=hline.style_solid, linewidth=1)
+zero_line_color = show_zero_line ? color.new(color.gray, 50) : color.new(color.gray, 100)
+hline(0, "Zero Line", color=zero_line_color, linestyle=hline.style_solid, linewidth=1)
 
 // Crossover Highlights
 bgcolor(highlight_crosses and macd_cross_above ? color.new(color.green, 90) : na, title="Bullish Cross")
