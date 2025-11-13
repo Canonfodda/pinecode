@@ -24,7 +24,7 @@ for i = 1 to fractalPeriod
 // Track only the MOST RECENT fractal point (either high or low)
 var float lastFractalPrice = na
 var int lastFractalBar = 0
-var bool lastFractalIsHigh = na  // true = high, false = low
+var bool lastFractalIsHigh = true  // true = high, false = low
 var line fractalLine = na
 
 if isFractalHigh
