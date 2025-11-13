@@ -38,28 +38,28 @@ moveRange = swingHigh - swingLow
 validMove = moveRange > 0
 
 // Track when swing points change to know when to start plotting
-var int swingHighBar = na
-var int swingLowBar = na
+var int swingHighBar = 0
+var int swingLowBar = 0
 var float lastSwingHigh = na
 var float lastSwingLow = na
 
 // Detect new swing high
-if swingHigh != lastSwingHigh
+if swingHigh != lastSwingHigh or na(lastSwingHigh)
     swingHighBar := bar_index
     lastSwingHigh := swingHigh
 
 // Detect new swing low
-if swingLow != lastSwingLow
+if swingLow != lastSwingLow or na(lastSwingLow)
     swingLowBar := bar_index
     lastSwingLow := swingLow
 
 // ============================================================================
 // TREND DETECTION
 // ============================================================================
-// Determine trend based on price position relative to swing points
+// Determine trend based on price position relative to moving average
 trendSMA = ta.sma(close, trendDetectionPeriod)
-isUptrend = close > trendSMA and low > swingLow
-isDowntrend = close < trendSMA and high < swingHigh
+isUptrend = close > trendSMA
+isDowntrend = close < trendSMA
 
 // ============================================================================
 // FIBONACCI RETRACEMENT LEVELS
