@@ -114,7 +114,7 @@ if showTable and barstate.islast
 // ============================================================================
 // ALERTS
 // ============================================================================
-alertcondition(ta.cross(currentPrice, level1Price), title="Level 1 Cross", message="Price crossed Fibonacci Level 1 retracement")
-alertcondition(ta.cross(currentPrice, level2Price), title="Level 2 Cross", message="Price crossed Fibonacci Level 2 retracement")
-alertcondition(ta.cross(currentPrice, level3Price), title="Level 3 Cross", message="Price crossed Fibonacci Level 3 retracement")
-alertcondition(ta.cross(currentPrice, level4Price), title="Level 4 Cross", message="Price crossed Fibonacci Level 4 retracement")
+alertcondition(ta.cross(currentPrice, level1Price), title="Level 1 Cross")
+alertcondition(ta.cross(currentPrice, level2Price), title="Level 2 Cross")
+alertcondition(ta.cross(currentPrice, level3Price), title="Level 3 Cross")
+alertcondition(ta.cross(currentPrice, level4Price), title="Level 4 Cross")
