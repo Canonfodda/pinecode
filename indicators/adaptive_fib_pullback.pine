@@ -4,49 +4,58 @@ indicator("Adaptive Fib Pullback Monitor", overlay=true)
 // ============================================================================
 // INPUTS
 // ============================================================================
-pivotLookback = input.int(20, "Pivot Lookback Period", minval=5, maxval=200, tooltip="Number of bars to look back for pivot high/low")
+swingLength = input.int(5, "Swing Length", minval=1, maxval=50, tooltip="Number of bars on each side to confirm swing high/low")
 
 // ============================================================================
-// PIVOT HIGH/LOW DETECTION
+// SWING HIGH/LOW DETECTION
 // ============================================================================
-// Find the highest high and lowest low over the lookback period
-pivotHigh = ta.highest(high, pivotLookback)
-pivotLow = ta.lowest(low, pivotLookback)
+// Swing High: high is higher than N bars on left AND N bars on right
+// Swing Low: low is lower than N bars on left AND N bars on right
 
-// Detect when a new pivot is formed (value changed from previous bar)
-newPivotHigh = pivotHigh != pivotHigh[1]
-newPivotLow = pivotLow != pivotLow[1]
+// Check if current bar is a swing high
+isSwingHigh = true
+for i = 1 to swingLength
+    if high <= high[i] or high <= high[-i]
+        isSwingHigh := false
+        break
 
-// Track BOTH the most recent pivot high AND pivot low
-var float lastPivotHighPrice = na
-var int lastPivotHighBar = 0
-var line pivotHighLine = na
+// Check if current bar is a swing low
+isSwingLow = true
+for i = 1 to swingLength
+    if low >= low[i] or low >= low[-i]
+        isSwingLow := false
+        break
 
-var float lastPivotLowPrice = na
-var int lastPivotLowBar = 0
-var line pivotLowLine = na
+// Track BOTH the most recent swing high AND swing low
+var float lastSwingHighPrice = na
+var int lastSwingHighBar = 0
+var line swingHighLine = na
 
-if newPivotHigh
-    lastPivotHighPrice := pivotHigh
-    lastPivotHighBar := bar_index
+var float lastSwingLowPrice = na
+var int lastSwingLowBar = 0
+var line swingLowLine = na
 
-    // Delete old line and draw new one from pivot high
-    if not na(pivotHighLine)
-        line.delete(pivotHighLine)
-    pivotHighLine := line.new(lastPivotHighBar, lastPivotHighPrice, bar_index, lastPivotHighPrice, color=color.red, width=2, extend=extend.right)
+if isSwingHigh
+    lastSwingHighPrice := high
+    lastSwingHighBar := bar_index
 
-if newPivotLow
-    lastPivotLowPrice := pivotLow
-    lastPivotLowBar := bar_index
+    // Delete old line and draw new one from swing high
+    if not na(swingHighLine)
+        line.delete(swingHighLine)
+    swingHighLine := line.new(lastSwingHighBar, lastSwingHighPrice, bar_index, lastSwingHighPrice, color=color.red, width=2, extend=extend.right)
 
-    // Delete old line and draw new one from pivot low
-    if not na(pivotLowLine)
-        line.delete(pivotLowLine)
-    pivotLowLine := line.new(lastPivotLowBar, lastPivotLowPrice, bar_index, lastPivotLowPrice, color=color.green, width=2, extend=extend.right)
+if isSwingLow
+    lastSwingLowPrice := low
+    lastSwingLowBar := bar_index
+
+    // Delete old line and draw new one from swing low
+    if not na(swingLowLine)
+        line.delete(swingLowLine)
+    swingLowLine := line.new(lastSwingLowBar, lastSwingLowPrice, bar_index, lastSwingLowPrice, color=color.green, width=2, extend=extend.right)
 
 // ============================================================================
 // VISUAL OUTPUTS
 // ============================================================================
-// Mark pivot points when detected
-plotshape(newPivotHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Pivot High")
-plotshape(newPivotLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="Pivot Low")
+// Mark swing points when detected
+plotshape(isSwingHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Swing High")
+plotshape(isSwingLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="Swing Low")
