@@ -4,10 +4,7 @@ indicator("Adaptive Fib Pullback Monitor", overlay=true)
 // ============================================================================
 // INPUTS
 // ============================================================================
-lookbackPeriod = input.int(20, "Swing Low Lookback", minval=5, maxval=200)
-useATRAdaptive = input.bool(false, "Use ATR Adaptive Lookback")
-atrPeriod = input.int(14, "ATR Period", minval=1)
-atrMultiplier = input.float(0.5, "ATR Lookback Multiplier", minval=0.1, maxval=5.0)
+fractalPeriod = input.int(26, "Fractal Period", minval=2, maxval=50, tooltip="Number of bars before/after for fractal detection")
 
 level1 = input.float(25.0, "Level 1 Retracement (%)", minval=0, maxval=100)
 level2 = input.float(33.0, "Level 2 Retracement (%)", minval=0, maxval=100)
@@ -20,38 +17,42 @@ showLevels = input.bool(true, "Show Retracement Levels")
 showTable = input.bool(true, "Show Info Table")
 
 // ============================================================================
-// ADAPTIVE LOOKBACK
+// WILLIAMS FRACTAL DETECTION
 // ============================================================================
-atrValue = ta.atr(atrPeriod)
-avgATR = ta.sma(atrValue, 20)
-atrRatio = avgATR > 0 ? atrValue / avgATR : 1.0
-adaptiveLookback = useATRAdaptive ? int(lookbackPeriod * (1 + atrMultiplier * (atrRatio - 1))) : lookbackPeriod
-finalLookback = math.max(5, math.min(nz(adaptiveLookback, lookbackPeriod), 200))
+// Fractal High: high is higher than N bars before and N bars after
+// Fractal Low: low is lower than N bars before and N bars after
+isFractalHigh = true
+isFractalLow = true
 
-// ============================================================================
-// SWING LOW AND HIGH DETECTION
-// ============================================================================
-swingLow = ta.lowest(low, finalLookback)
-swingHigh = ta.highest(high, finalLookback)
+for i = 1 to fractalPeriod
+    if high[fractalPeriod] <= high[fractalPeriod + i] or high[fractalPeriod] <= high[fractalPeriod - i]
+        isFractalHigh := false
+    if low[fractalPeriod] >= low[fractalPeriod + i] or low[fractalPeriod] >= low[fractalPeriod - i]
+        isFractalLow := false
 
-moveRange = swingHigh - swingLow
-validMove = moveRange > 0
+// Track the most recent fractal swing points
+var float swingHigh = na
+var float swingLow = na
+
+if isFractalHigh
+    swingHigh := high[fractalPeriod]
+
+if isFractalLow
+    swingLow := low[fractalPeriod]
+
+moveRange = not na(swingHigh) and not na(swingLow) ? swingHigh - swingLow : na
+validMove = not na(moveRange) and moveRange > 0
 
 // Track when swing points change to know when to start plotting
 var int swingHighBar = 0
 var int swingLowBar = 0
-var float lastSwingHigh = na
-var float lastSwingLow = na
 
-// Detect new swing high
-if swingHigh != lastSwingHigh or na(lastSwingHigh)
-    swingHighBar := bar_index
-    lastSwingHigh := swingHigh
+// Update bar index when new fractals are detected
+if isFractalHigh and not na(swingHigh)
+    swingHighBar := bar_index - fractalPeriod  // Fractal occurred N bars ago
 
-// Detect new swing low
-if swingLow != lastSwingLow or na(lastSwingLow)
-    swingLowBar := bar_index
-    lastSwingLow := swingLow
+if isFractalLow and not na(swingLow)
+    swingLowBar := bar_index - fractalPeriod  // Fractal occurred N bars ago
 
 // ============================================================================
 // TREND DETECTION
@@ -116,11 +117,15 @@ else if validMove and isUptrend
 // VISUAL OUTPUTS - SWING POINTS
 // ============================================================================
 // Show swing high only in downtrend from when it was established, swing low only in uptrend
-showSwingHigh = showSwingPoints and isDowntrend and bar_index >= swingHighBar
-showSwingLow = showSwingPoints and isUptrend and bar_index >= swingLowBar
+showSwingHigh = showSwingPoints and isDowntrend and bar_index >= swingHighBar and not na(swingHigh)
+showSwingLow = showSwingPoints and isUptrend and bar_index >= swingLowBar and not na(swingLow)
 
 plot(showSwingHigh ? swingHigh : na, "Swing High", color=color.new(color.red, 40), linewidth=2, style=plot.style_line)
 plot(showSwingLow ? swingLow : na, "Swing Low", color=color.new(color.green, 40), linewidth=2, style=plot.style_line)
+
+// Mark fractal points when detected
+plotshape(isFractalHigh and showSwingPoints and isDowntrend, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-fractalPeriod)
+plotshape(isFractalLow and showSwingPoints and isUptrend, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-fractalPeriod)
 
 // ============================================================================
 // VISUAL OUTPUTS - FIB LEVELS
