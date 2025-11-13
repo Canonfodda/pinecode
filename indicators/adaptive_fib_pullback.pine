@@ -4,7 +4,7 @@ indicator("Adaptive Fib Pullback Monitor", overlay=true)
 // ============================================================================
 // INPUTS
 // ============================================================================
-fractalPeriod = input.int(26, "Fractal Period", minval=2, maxval=50, tooltip="Number of bars before/after for fractal detection")
+fractalPeriod = input.int(5, "Fractal Period", minval=2, maxval=50, tooltip="Number of bars before/after for fractal detection")
 
 // ============================================================================
 // WILLIAMS FRACTAL DETECTION
@@ -21,31 +21,31 @@ for i = 1 to fractalPeriod
     if low[fractalPeriod] >= low[fractalPeriod + i] or low[fractalPeriod] >= low[fractalPeriod - i]
         isFractalLow := false
 
-// Track the most recent major high and low
-var float lastMajorHigh = na
-var float lastMajorLow = na
-var int lastMajorHighBar = 0
-var int lastMajorLowBar = 0
-var line highLine = na
-var line lowLine = na
+// Track only the MOST RECENT fractal point (either high or low)
+var float lastFractalPrice = na
+var int lastFractalBar = 0
+var bool lastFractalIsHigh = na  // true = high, false = low
+var line fractalLine = na
 
 if isFractalHigh
-    lastMajorHigh := high[fractalPeriod]
-    lastMajorHighBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
+    lastFractalPrice := high[fractalPeriod]
+    lastFractalBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
+    lastFractalIsHigh := true
 
-    // Delete old line and draw new one
-    if not na(highLine)
-        line.delete(highLine)
-    highLine := line.new(lastMajorHighBar, lastMajorHigh, bar_index, lastMajorHigh, color=color.red, width=2, extend=extend.right)
+    // Delete old line and draw new one from fractal high
+    if not na(fractalLine)
+        line.delete(fractalLine)
+    fractalLine := line.new(lastFractalBar, lastFractalPrice, bar_index, lastFractalPrice, color=color.red, width=2, extend=extend.right)
 
 if isFractalLow
-    lastMajorLow := low[fractalPeriod]
-    lastMajorLowBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
+    lastFractalPrice := low[fractalPeriod]
+    lastFractalBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
+    lastFractalIsHigh := false
 
-    // Delete old line and draw new one
-    if not na(lowLine)
-        line.delete(lowLine)
-    lowLine := line.new(lastMajorLowBar, lastMajorLow, bar_index, lastMajorLow, color=color.green, width=2, extend=extend.right)
+    // Delete old line and draw new one from fractal low
+    if not na(fractalLine)
+        line.delete(fractalLine)
+    fractalLine := line.new(lastFractalBar, lastFractalPrice, bar_index, lastFractalPrice, color=color.green, width=2, extend=extend.right)
 
 // ============================================================================
 // VISUAL OUTPUTS
