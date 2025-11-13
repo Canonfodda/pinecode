@@ -1,4 +1,43 @@
 //@version=6
 indicator("Adaptive Fib Pullback Monitor", overlay=true)
 
-// Starting fresh - ready for your requirements
+// ============================================================================
+// INPUTS
+// ============================================================================
+fractalPeriod = input.int(26, "Fractal Period", minval=2, maxval=50, tooltip="Number of bars before/after for fractal detection")
+
+// ============================================================================
+// WILLIAMS FRACTAL DETECTION
+// ============================================================================
+// Fractal High: high is higher than N bars before AND N bars after
+// Fractal Low: low is lower than N bars before AND N bars after
+
+isFractalHigh = true
+isFractalLow = true
+
+for i = 1 to fractalPeriod
+    if high[fractalPeriod] <= high[fractalPeriod + i] or high[fractalPeriod] <= high[fractalPeriod - i]
+        isFractalHigh := false
+    if low[fractalPeriod] >= low[fractalPeriod + i] or low[fractalPeriod] >= low[fractalPeriod - i]
+        isFractalLow := false
+
+// Track the most recent major high and low
+var float lastMajorHigh = na
+var float lastMajorLow = na
+
+if isFractalHigh
+    lastMajorHigh := high[fractalPeriod]
+
+if isFractalLow
+    lastMajorLow := low[fractalPeriod]
+
+// ============================================================================
+// VISUAL OUTPUTS
+// ============================================================================
+// Plot the last major high and low as horizontal lines
+plot(lastMajorHigh, "Last Major High", color=color.red, linewidth=2, style=plot.style_line)
+plot(lastMajorLow, "Last Major Low", color=color.green, linewidth=2, style=plot.style_line)
+
+// Mark fractal points when detected
+plotshape(isFractalHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-fractalPeriod, title="Fractal High")
+plotshape(isFractalLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-fractalPeriod, title="Fractal Low")
