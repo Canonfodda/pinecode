@@ -26,25 +26,30 @@ var float lastMajorHigh = na
 var float lastMajorLow = na
 var int lastMajorHighBar = 0
 var int lastMajorLowBar = 0
+var line highLine = na
+var line lowLine = na
 
 if isFractalHigh
     lastMajorHigh := high[fractalPeriod]
     lastMajorHighBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
 
+    // Delete old line and draw new one
+    if not na(highLine)
+        line.delete(highLine)
+    highLine := line.new(lastMajorHighBar, lastMajorHigh, bar_index, lastMajorHigh, color=color.red, width=2, extend=extend.right)
+
 if isFractalLow
     lastMajorLow := low[fractalPeriod]
     lastMajorLowBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
 
+    // Delete old line and draw new one
+    if not na(lowLine)
+        line.delete(lowLine)
+    lowLine := line.new(lastMajorLowBar, lastMajorLow, bar_index, lastMajorLow, color=color.green, width=2, extend=extend.right)
+
 // ============================================================================
 // VISUAL OUTPUTS
 // ============================================================================
-// Plot the last major high and low only from when they were detected
-showMajorHigh = not na(lastMajorHigh) and bar_index >= lastMajorHighBar
-showMajorLow = not na(lastMajorLow) and bar_index >= lastMajorLowBar
-
-plot(showMajorHigh ? lastMajorHigh : na, "Last Major High", color=color.red, linewidth=2, style=plot.style_line)
-plot(showMajorLow ? lastMajorLow : na, "Last Major Low", color=color.green, linewidth=2, style=plot.style_line)
-
 // Mark fractal points when detected
 plotshape(isFractalHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-fractalPeriod, title="Fractal High")
 plotshape(isFractalLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-fractalPeriod, title="Fractal Low")
