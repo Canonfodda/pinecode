@@ -46,13 +46,20 @@ validMove = not na(moveRange) and moveRange > 0
 // Track when swing points change to know when to start plotting
 var int swingHighBar = 0
 var int swingLowBar = 0
+var int lastFractalBar = 0  // Track the most recent fractal of any type
 
 // Update bar index when new fractals are detected
 if isFractalHigh and not na(swingHigh)
     swingHighBar := bar_index - fractalPeriod  // Fractal occurred N bars ago
+    lastFractalBar := swingHighBar
 
 if isFractalLow and not na(swingLow)
     swingLowBar := bar_index - fractalPeriod  // Fractal occurred N bars ago
+    lastFractalBar := swingLowBar
+
+// Determine which fractal is more recent to know the active range
+swingHighIsRecent = swingHighBar > swingLowBar
+swingLowIsRecent = swingLowBar > swingHighBar
 
 // ============================================================================
 // TREND DETECTION
@@ -65,21 +72,22 @@ isDowntrend = close < trendSMA
 // ============================================================================
 // FIBONACCI RETRACEMENT LEVELS
 // ============================================================================
-// For downtrend: retracements from swing high (price pulling back up)
-// For uptrend: retracements from swing low (price pulling back down)
+// Calculate based on which fractal is more recent
+// If swing high is more recent: we're looking for retracements from that high
+// If swing low is more recent: we're looking for retracements from that low
 level1Price = float(na)
 level2Price = float(na)
 level3Price = float(na)
 level4Price = float(na)
 
-if validMove and isDowntrend
-    // Downtrend: calculate retracements from swing high
+if validMove and swingHighIsRecent and isDowntrend
+    // Most recent fractal is a high - calculate retracements downward
     level1Price := swingHigh - (moveRange * level1 / 100)
     level2Price := swingHigh - (moveRange * level2 / 100)
     level3Price := swingHigh - (moveRange * level3 / 100)
     level4Price := swingHigh - (moveRange * level4 / 100)
-else if validMove and isUptrend
-    // Uptrend: calculate retracements from swing low
+else if validMove and swingLowIsRecent and isUptrend
+    // Most recent fractal is a low - calculate retracements upward
     level1Price := swingLow + (moveRange * level1 / 100)
     level2Price := swingLow + (moveRange * level2 / 100)
     level3Price := swingLow + (moveRange * level3 / 100)
@@ -91,48 +99,49 @@ else if validMove and isUptrend
 currentPrice = close
 priceInRange = validMove and currentPrice <= swingHigh and currentPrice >= swingLow
 
-// Calculate pullback percentage based on trend direction
+// Calculate pullback percentage based on which fractal is more recent
 currentPullbackPercent = 0.0
 level1Hit = false
 level2Hit = false
 level3Hit = false
 level4Hit = false
 
-if validMove and isDowntrend
-    // Downtrend: measure pullback from swing low upward
-    currentPullbackPercent := ((currentPrice - swingLow) / moveRange) * 100
-    level1Hit := priceInRange and currentPrice >= level1Price and currentPrice < level2Price
-    level2Hit := priceInRange and currentPrice >= level2Price and currentPrice < level3Price
-    level3Hit := priceInRange and currentPrice >= level3Price and currentPrice < level4Price
-    level4Hit := priceInRange and currentPrice >= level4Price
-else if validMove and isUptrend
-    // Uptrend: measure pullback from swing high downward
+if validMove and swingHighIsRecent and isDowntrend
+    // Recent fractal high - measure retracement from high downward
     currentPullbackPercent := ((swingHigh - currentPrice) / moveRange) * 100
     level1Hit := priceInRange and currentPrice <= level1Price and currentPrice > level2Price
     level2Hit := priceInRange and currentPrice <= level2Price and currentPrice > level3Price
     level3Hit := priceInRange and currentPrice <= level3Price and currentPrice > level4Price
     level4Hit := priceInRange and currentPrice <= level4Price
+else if validMove and swingLowIsRecent and isUptrend
+    // Recent fractal low - measure retracement from low upward
+    currentPullbackPercent := ((currentPrice - swingLow) / moveRange) * 100
+    level1Hit := priceInRange and currentPrice >= level1Price and currentPrice < level2Price
+    level2Hit := priceInRange and currentPrice >= level2Price and currentPrice < level3Price
+    level3Hit := priceInRange and currentPrice >= level3Price and currentPrice < level4Price
+    level4Hit := priceInRange and currentPrice >= level4Price
 
 // ============================================================================
 // VISUAL OUTPUTS - SWING POINTS
 // ============================================================================
-// Show swing high only in downtrend from when it was established, swing low only in uptrend
-showSwingHigh = showSwingPoints and isDowntrend and bar_index >= swingHighBar and not na(swingHigh)
-showSwingLow = showSwingPoints and isUptrend and bar_index >= swingLowBar and not na(swingLow)
+// Show swing high only from when it was established (if it's the most recent fractal)
+// Show swing low only from when it was established (if it's the most recent fractal)
+showSwingHigh = showSwingPoints and isDowntrend and swingHighIsRecent and bar_index >= swingHighBar and not na(swingHigh)
+showSwingLow = showSwingPoints and isUptrend and swingLowIsRecent and bar_index >= swingLowBar and not na(swingLow)
 
 plot(showSwingHigh ? swingHigh : na, "Swing High", color=color.new(color.red, 40), linewidth=2, style=plot.style_line)
 plot(showSwingLow ? swingLow : na, "Swing Low", color=color.new(color.green, 40), linewidth=2, style=plot.style_line)
 
 // Mark fractal points when detected
-plotshape(isFractalHigh and showSwingPoints and isDowntrend, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-fractalPeriod)
-plotshape(isFractalLow and showSwingPoints and isUptrend, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-fractalPeriod)
+plotshape(isFractalHigh and showSwingPoints, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-fractalPeriod, title="Fractal High")
+plotshape(isFractalLow and showSwingPoints, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-fractalPeriod, title="Fractal Low")
 
 // ============================================================================
 // VISUAL OUTPUTS - FIB LEVELS
 // ============================================================================
-// Only show levels from the relevant swing point forward
-showDowntrendLevels = showLevels and isDowntrend and bar_index >= swingHighBar
-showUptrendLevels = showLevels and isUptrend and bar_index >= swingLowBar
+// Only show levels from the most recent fractal forward (not across entire history)
+showDowntrendLevels = showLevels and isDowntrend and swingHighIsRecent and bar_index >= swingHighBar
+showUptrendLevels = showLevels and isUptrend and swingLowIsRecent and bar_index >= swingLowBar
 showFibLevels = showDowntrendLevels or showUptrendLevels
 
 plot(showFibLevels ? level1Price : na, "Fib Level 1", color=color.new(color.green, 30), linewidth=2, style=plot.style_line)
