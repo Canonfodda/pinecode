@@ -17,31 +17,32 @@ pivotLow = ta.lowest(low, pivotLookback)
 newPivotHigh = pivotHigh != pivotHigh[1]
 newPivotLow = pivotLow != pivotLow[1]
 
-// Track only the MOST RECENT pivot point (either high or low)
-var float lastPivotPrice = na
-var int lastPivotBar = 0
-var bool lastPivotIsHigh = true  // true = high, false = low
-var line pivotLine = na
+// Track BOTH the most recent pivot high AND pivot low
+var float lastPivotHighPrice = na
+var int lastPivotHighBar = 0
+var line pivotHighLine = na
+
+var float lastPivotLowPrice = na
+var int lastPivotLowBar = 0
+var line pivotLowLine = na
 
 if newPivotHigh
-    lastPivotPrice := pivotHigh
-    lastPivotBar := bar_index
-    lastPivotIsHigh := true
+    lastPivotHighPrice := pivotHigh
+    lastPivotHighBar := bar_index
 
     // Delete old line and draw new one from pivot high
-    if not na(pivotLine)
-        line.delete(pivotLine)
-    pivotLine := line.new(lastPivotBar, lastPivotPrice, bar_index, lastPivotPrice, color=color.red, width=2, extend=extend.right)
+    if not na(pivotHighLine)
+        line.delete(pivotHighLine)
+    pivotHighLine := line.new(lastPivotHighBar, lastPivotHighPrice, bar_index, lastPivotHighPrice, color=color.red, width=2, extend=extend.right)
 
 if newPivotLow
-    lastPivotPrice := pivotLow
-    lastPivotBar := bar_index
-    lastPivotIsHigh := false
+    lastPivotLowPrice := pivotLow
+    lastPivotLowBar := bar_index
 
     // Delete old line and draw new one from pivot low
-    if not na(pivotLine)
-        line.delete(pivotLine)
-    pivotLine := line.new(lastPivotBar, lastPivotPrice, bar_index, lastPivotPrice, color=color.green, width=2, extend=extend.right)
+    if not na(pivotLowLine)
+        line.delete(pivotLowLine)
+    pivotLowLine := line.new(lastPivotLowBar, lastPivotLowPrice, bar_index, lastPivotLowPrice, color=color.green, width=2, extend=extend.right)
 
 // ============================================================================
 // VISUAL OUTPUTS
