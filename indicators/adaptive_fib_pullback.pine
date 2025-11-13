@@ -24,19 +24,26 @@ for i = 1 to fractalPeriod
 // Track the most recent major high and low
 var float lastMajorHigh = na
 var float lastMajorLow = na
+var int lastMajorHighBar = na
+var int lastMajorLowBar = na
 
 if isFractalHigh
     lastMajorHigh := high[fractalPeriod]
+    lastMajorHighBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
 
 if isFractalLow
     lastMajorLow := low[fractalPeriod]
+    lastMajorLowBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
 
 // ============================================================================
 // VISUAL OUTPUTS
 // ============================================================================
-// Plot the last major high and low as horizontal lines
-plot(lastMajorHigh, "Last Major High", color=color.red, linewidth=2, style=plot.style_line)
-plot(lastMajorLow, "Last Major Low", color=color.green, linewidth=2, style=plot.style_line)
+// Plot the last major high and low only from when they were detected
+showMajorHigh = not na(lastMajorHigh) and bar_index >= lastMajorHighBar
+showMajorLow = not na(lastMajorLow) and bar_index >= lastMajorLowBar
+
+plot(showMajorHigh ? lastMajorHigh : na, "Last Major High", color=color.red, linewidth=2, style=plot.style_line)
+plot(showMajorLow ? lastMajorLow : na, "Last Major Low", color=color.green, linewidth=2, style=plot.style_line)
 
 // Mark fractal points when detected
 plotshape(isFractalHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-fractalPeriod, title="Fractal High")
