@@ -37,6 +37,22 @@ swingHigh = ta.highest(high, finalLookback)
 moveRange = swingHigh - swingLow
 validMove = moveRange > 0
 
+// Track when swing points change to know when to start plotting
+var int swingHighBar = na
+var int swingLowBar = na
+var float lastSwingHigh = na
+var float lastSwingLow = na
+
+// Detect new swing high
+if swingHigh != lastSwingHigh
+    swingHighBar := bar_index
+    lastSwingHigh := swingHigh
+
+// Detect new swing low
+if swingLow != lastSwingLow
+    swingLowBar := bar_index
+    lastSwingLow := swingLow
+
 // ============================================================================
 // TREND DETECTION
 // ============================================================================
@@ -99,17 +115,25 @@ else if validMove and isUptrend
 // ============================================================================
 // VISUAL OUTPUTS - SWING POINTS
 // ============================================================================
-// Show swing high only in downtrend, swing low only in uptrend
-plot(showSwingPoints and isDowntrend ? swingHigh : na, "Swing High", color=color.new(color.red, 40), linewidth=2, style=plot.style_line)
-plot(showSwingPoints and isUptrend ? swingLow : na, "Swing Low", color=color.new(color.green, 40), linewidth=2, style=plot.style_line)
+// Show swing high only in downtrend from when it was established, swing low only in uptrend
+showSwingHigh = showSwingPoints and isDowntrend and bar_index >= swingHighBar
+showSwingLow = showSwingPoints and isUptrend and bar_index >= swingLowBar
+
+plot(showSwingHigh ? swingHigh : na, "Swing High", color=color.new(color.red, 40), linewidth=2, style=plot.style_line)
+plot(showSwingLow ? swingLow : na, "Swing Low", color=color.new(color.green, 40), linewidth=2, style=plot.style_line)
 
 // ============================================================================
 // VISUAL OUTPUTS - FIB LEVELS
 // ============================================================================
-plot(showLevels ? level1Price : na, "Fib Level 1", color=color.new(color.green, 30), linewidth=2, style=plot.style_line)
-plot(showLevels ? level2Price : na, "Fib Level 2", color=color.new(color.yellow, 30), linewidth=2, style=plot.style_line)
-plot(showLevels ? level3Price : na, "Fib Level 3", color=color.new(color.orange, 30), linewidth=2, style=plot.style_line)
-plot(showLevels ? level4Price : na, "Fib Level 4", color=color.new(color.red, 30), linewidth=2, style=plot.style_line)
+// Only show levels from the relevant swing point forward
+showDowntrendLevels = showLevels and isDowntrend and bar_index >= swingHighBar
+showUptrendLevels = showLevels and isUptrend and bar_index >= swingLowBar
+showFibLevels = showDowntrendLevels or showUptrendLevels
+
+plot(showFibLevels ? level1Price : na, "Fib Level 1", color=color.new(color.green, 30), linewidth=2, style=plot.style_line)
+plot(showFibLevels ? level2Price : na, "Fib Level 2", color=color.new(color.yellow, 30), linewidth=2, style=plot.style_line)
+plot(showFibLevels ? level3Price : na, "Fib Level 3", color=color.new(color.orange, 30), linewidth=2, style=plot.style_line)
+plot(showFibLevels ? level4Price : na, "Fib Level 4", color=color.new(color.red, 30), linewidth=2, style=plot.style_line)
 
 // ============================================================================
 // BACKGROUND ALERTS
