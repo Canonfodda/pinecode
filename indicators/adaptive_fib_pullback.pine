@@ -50,10 +50,10 @@ isDowntrend = close < trendSMA and high < swingHigh
 // ============================================================================
 // For downtrend: retracements from swing high (price pulling back up)
 // For uptrend: retracements from swing low (price pulling back down)
-level1Price = na(float)
-level2Price = na(float)
-level3Price = na(float)
-level4Price = na(float)
+level1Price = float(na)
+level2Price = float(na)
+level3Price = float(na)
+level4Price = float(na)
 
 if validMove and isDowntrend
     // Downtrend: calculate retracements from swing high
