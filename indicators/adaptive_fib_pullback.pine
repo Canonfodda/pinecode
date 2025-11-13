@@ -114,7 +114,7 @@ if showTable and barstate.islast
 // ============================================================================
 // ALERTS
 // ============================================================================
-alertcondition(ta.cross(currentPrice, level1Price), "Level 1 Cross", "Price crossed " + str.tostring(level1) + "% retracement at " + str.tostring(level1Price))
-alertcondition(ta.cross(currentPrice, level2Price), "Level 2 Cross", "Price crossed " + str.tostring(level2) + "% retracement at " + str.tostring(level2Price))
-alertcondition(ta.cross(currentPrice, level3Price), "Level 3 Cross", "Price crossed " + str.tostring(level3) + "% retracement at " + str.tostring(level3Price))
-alertcondition(ta.cross(currentPrice, level4Price), "Level 4 Cross", "Price crossed " + str.tostring(level4) + "% retracement at " + str.tostring(level4Price))
+alertcondition(ta.cross(currentPrice, level1Price), "Level 1 Cross", "Price crossed Fibonacci Level 1 retracement")
+alertcondition(ta.cross(currentPrice, level2Price), "Level 2 Cross", "Price crossed Fibonacci Level 2 retracement")
+alertcondition(ta.cross(currentPrice, level3Price), "Level 3 Cross", "Price crossed Fibonacci Level 3 retracement")
+alertcondition(ta.cross(currentPrice, level4Price), "Level 4 Cross", "Price crossed Fibonacci Level 4 retracement")
