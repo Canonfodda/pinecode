@@ -4,34 +4,14 @@ indicator("Adaptive Fib Pullback Monitor", overlay=true)
 // ============================================================================
 // INPUTS
 // ============================================================================
-swingLength = input.int(5, "Swing Length", minval=1, maxval=50, tooltip="Number of bars on each side to confirm swing high/low")
+swingLength = input.int(21, "Swing Length", minval=1, maxval=50, tooltip="Number of bars on each side to confirm swing high/low")
 
 // ============================================================================
-// SWING HIGH/LOW DETECTION
+// SWING HIGH/LOW DETECTION USING BUILT-IN FUNCTIONS
 // ============================================================================
-// Swing High: high is higher than N bars on left AND N bars on right
-// Swing Low: low is lower than N bars on left AND N bars on right
-// We check swingLength bars back since we need swingLength bars ahead to confirm
-
-// Check if the bar N bars ago is a swing high
-isSwingHigh = true
-if bar_index >= swingLength
-    for i = 1 to swingLength
-        if high[swingLength] <= high[swingLength + i] or high[swingLength] <= high[swingLength - i]
-            isSwingHigh := false
-            break
-else
-    isSwingHigh := false
-
-// Check if the bar N bars ago is a swing low
-isSwingLow = true
-if bar_index >= swingLength
-    for i = 1 to swingLength
-        if low[swingLength] >= low[swingLength + i] or low[swingLength] >= low[swingLength - i]
-            isSwingLow := false
-            break
-else
-    isSwingLow := false
+// Use Pine Script's built-in pivot detection
+ph = ta.pivothigh(swingLength, swingLength)
+pl = ta.pivotlow(swingLength, swingLength)
 
 // Track BOTH the most recent swing high AND swing low
 var float lastSwingHighPrice = na
@@ -42,8 +22,8 @@ var float lastSwingLowPrice = na
 var int lastSwingLowBar = 0
 var line swingLowLine = na
 
-if isSwingHigh
-    lastSwingHighPrice := high[swingLength]  // The swing occurred swingLength bars ago
+if not na(ph)
+    lastSwingHighPrice := ph
     lastSwingHighBar := bar_index - swingLength
 
     // Delete old line and draw new one from swing high
@@ -51,8 +31,8 @@ if isSwingHigh
         line.delete(swingHighLine)
     swingHighLine := line.new(lastSwingHighBar, lastSwingHighPrice, bar_index, lastSwingHighPrice, color=color.red, width=2, extend=extend.right)
 
-if isSwingLow
-    lastSwingLowPrice := low[swingLength]  // The swing occurred swingLength bars ago
+if not na(pl)
+    lastSwingLowPrice := pl
     lastSwingLowBar := bar_index - swingLength
 
     // Delete old line and draw new one from swing low
@@ -64,5 +44,5 @@ if isSwingLow
 // VISUAL OUTPUTS
 // ============================================================================
 // Mark swing points when detected (offset to show at the actual swing bar)
-plotshape(isSwingHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-swingLength, title="Swing High")
-plotshape(isSwingLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-swingLength, title="Swing Low")
+plotshape(not na(ph), style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-swingLength, title="Swing High")
+plotshape(not na(pl), style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-swingLength, title="Swing Low")
