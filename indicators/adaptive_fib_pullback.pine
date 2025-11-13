@@ -11,20 +11,27 @@ swingLength = input.int(5, "Swing Length", minval=1, maxval=50, tooltip="Number 
 // ============================================================================
 // Swing High: high is higher than N bars on left AND N bars on right
 // Swing Low: low is lower than N bars on left AND N bars on right
+// We check swingLength bars back since we need swingLength bars ahead to confirm
 
-// Check if current bar is a swing high
+// Check if the bar N bars ago is a swing high
 isSwingHigh = true
-for i = 1 to swingLength
-    if high <= high[i] or high <= high[-i]
-        isSwingHigh := false
-        break
+if bar_index >= swingLength
+    for i = 1 to swingLength
+        if high[swingLength] <= high[swingLength + i] or high[swingLength] <= high[swingLength - i]
+            isSwingHigh := false
+            break
+else
+    isSwingHigh := false
 
-// Check if current bar is a swing low
+// Check if the bar N bars ago is a swing low
 isSwingLow = true
-for i = 1 to swingLength
-    if low >= low[i] or low >= low[-i]
-        isSwingLow := false
-        break
+if bar_index >= swingLength
+    for i = 1 to swingLength
+        if low[swingLength] >= low[swingLength + i] or low[swingLength] >= low[swingLength - i]
+            isSwingLow := false
+            break
+else
+    isSwingLow := false
 
 // Track BOTH the most recent swing high AND swing low
 var float lastSwingHighPrice = na
@@ -36,8 +43,8 @@ var int lastSwingLowBar = 0
 var line swingLowLine = na
 
 if isSwingHigh
-    lastSwingHighPrice := high
-    lastSwingHighBar := bar_index
+    lastSwingHighPrice := high[swingLength]  // The swing occurred swingLength bars ago
+    lastSwingHighBar := bar_index - swingLength
 
     // Delete old line and draw new one from swing high
     if not na(swingHighLine)
@@ -45,8 +52,8 @@ if isSwingHigh
     swingHighLine := line.new(lastSwingHighBar, lastSwingHighPrice, bar_index, lastSwingHighPrice, color=color.red, width=2, extend=extend.right)
 
 if isSwingLow
-    lastSwingLowPrice := low
-    lastSwingLowBar := bar_index
+    lastSwingLowPrice := low[swingLength]  // The swing occurred swingLength bars ago
+    lastSwingLowBar := bar_index - swingLength
 
     // Delete old line and draw new one from swing low
     if not na(swingLowLine)
@@ -56,6 +63,6 @@ if isSwingLow
 // ============================================================================
 // VISUAL OUTPUTS
 // ============================================================================
-// Mark swing points when detected
-plotshape(isSwingHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Swing High")
-plotshape(isSwingLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="Swing Low")
+// Mark swing points when detected (offset to show at the actual swing bar)
+plotshape(isSwingHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-swingLength, title="Swing High")
+plotshape(isSwingLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-swingLength, title="Swing Low")
