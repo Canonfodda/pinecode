@@ -24,8 +24,8 @@ for i = 1 to fractalPeriod
 // Track the most recent major high and low
 var float lastMajorHigh = na
 var float lastMajorLow = na
-var int lastMajorHighBar = na
-var int lastMajorLowBar = na
+var int lastMajorHighBar = 0
+var int lastMajorLowBar = 0
 
 if isFractalHigh
     lastMajorHigh := high[fractalPeriod]
