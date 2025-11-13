@@ -14,6 +14,7 @@ level2 = input.float(33.0, "Level 2 Retracement (%)", minval=0, maxval=100)
 level3 = input.float(50.0, "Level 3 Retracement (%)", minval=0, maxval=100)
 level4 = input.float(61.8, "Level 4 Retracement (%)", minval=0, maxval=100)
 
+trendDetectionPeriod = input.int(50, "Trend Detection Period", minval=10, maxval=200)
 showSwingPoints = input.bool(true, "Show Swing Low/High")
 showLevels = input.bool(true, "Show Retracement Levels")
 showTable = input.bool(true, "Show Info Table")
@@ -37,33 +38,70 @@ moveRange = swingHigh - swingLow
 validMove = moveRange > 0
 
 // ============================================================================
+// TREND DETECTION
+// ============================================================================
+// Determine trend based on price position relative to swing points
+trendSMA = ta.sma(close, trendDetectionPeriod)
+isUptrend = close > trendSMA and low > swingLow
+isDowntrend = close < trendSMA and high < swingHigh
+
+// ============================================================================
 // FIBONACCI RETRACEMENT LEVELS
 // ============================================================================
-fib0 = swingHigh
-fib100 = swingLow
+// For downtrend: retracements from swing high (price pulling back up)
+// For uptrend: retracements from swing low (price pulling back down)
+level1Price = na(float)
+level2Price = na(float)
+level3Price = na(float)
+level4Price = na(float)
 
-level1Price = validMove ? swingHigh - (moveRange * level1 / 100) : na
-level2Price = validMove ? swingHigh - (moveRange * level2 / 100) : na
-level3Price = validMove ? swingHigh - (moveRange * level3 / 100) : na
-level4Price = validMove ? swingHigh - (moveRange * level4 / 100) : na
+if validMove and isDowntrend
+    // Downtrend: calculate retracements from swing high
+    level1Price := swingHigh - (moveRange * level1 / 100)
+    level2Price := swingHigh - (moveRange * level2 / 100)
+    level3Price := swingHigh - (moveRange * level3 / 100)
+    level4Price := swingHigh - (moveRange * level4 / 100)
+else if validMove and isUptrend
+    // Uptrend: calculate retracements from swing low
+    level1Price := swingLow + (moveRange * level1 / 100)
+    level2Price := swingLow + (moveRange * level2 / 100)
+    level3Price := swingLow + (moveRange * level3 / 100)
+    level4Price := swingLow + (moveRange * level4 / 100)
 
 // ============================================================================
 // CURRENT POSITION ANALYSIS
 // ============================================================================
 currentPrice = close
 priceInRange = validMove and currentPrice <= swingHigh and currentPrice >= swingLow
-currentPullbackPercent = validMove ? ((swingHigh - currentPrice) / moveRange) * 100 : 0
 
-level1Hit = priceInRange and currentPrice <= level1Price and currentPrice > level2Price
-level2Hit = priceInRange and currentPrice <= level2Price and currentPrice > level3Price
-level3Hit = priceInRange and currentPrice <= level3Price and currentPrice > level4Price
-level4Hit = priceInRange and currentPrice <= level4Price
+// Calculate pullback percentage based on trend direction
+currentPullbackPercent = 0.0
+level1Hit = false
+level2Hit = false
+level3Hit = false
+level4Hit = false
+
+if validMove and isDowntrend
+    // Downtrend: measure pullback from swing low upward
+    currentPullbackPercent := ((currentPrice - swingLow) / moveRange) * 100
+    level1Hit := priceInRange and currentPrice >= level1Price and currentPrice < level2Price
+    level2Hit := priceInRange and currentPrice >= level2Price and currentPrice < level3Price
+    level3Hit := priceInRange and currentPrice >= level3Price and currentPrice < level4Price
+    level4Hit := priceInRange and currentPrice >= level4Price
+else if validMove and isUptrend
+    // Uptrend: measure pullback from swing high downward
+    currentPullbackPercent := ((swingHigh - currentPrice) / moveRange) * 100
+    level1Hit := priceInRange and currentPrice <= level1Price and currentPrice > level2Price
+    level2Hit := priceInRange and currentPrice <= level2Price and currentPrice > level3Price
+    level3Hit := priceInRange and currentPrice <= level3Price and currentPrice > level4Price
+    level4Hit := priceInRange and currentPrice <= level4Price
 
 // ============================================================================
 // VISUAL OUTPUTS - SWING POINTS
 // ============================================================================
-plot(showSwingPoints ? swingHigh : na, "Swing High (0%)", color=color.new(color.blue, 40), linewidth=2, style=plot.style_line)
-plot(showSwingPoints ? swingLow : na, "Swing Low (100%)", color=color.new(color.blue, 40), linewidth=2, style=plot.style_line)
+// Show swing high only in downtrend, swing low only in uptrend
+plot(showSwingPoints and isDowntrend ? swingHigh : na, "Swing High", color=color.new(color.red, 40), linewidth=2, style=plot.style_line)
+plot(showSwingPoints and isUptrend ? swingLow : na, "Swing Low", color=color.new(color.green, 40), linewidth=2, style=plot.style_line)
 
 // ============================================================================
 // VISUAL OUTPUTS - FIB LEVELS
@@ -85,31 +123,36 @@ bgcolor(level4Hit ? color.new(color.red, 90) : na, title="Level 4 Zone")
 // INFO TABLE
 // ============================================================================
 if showTable and barstate.islast
-    var table infoTable = table.new(position.top_right, 2, 7, bgcolor=color.new(color.black, 80), border_width=1, border_color=color.gray)
+    var table infoTable = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 80), border_width=1, border_color=color.gray)
 
     table.cell(infoTable, 0, 0, "Metric", text_color=color.white, bgcolor=color.new(color.gray, 70))
     table.cell(infoTable, 1, 0, "Value", text_color=color.white, bgcolor=color.new(color.gray, 70))
 
-    table.cell(infoTable, 0, 1, "Swing High", text_color=color.white)
-    table.cell(infoTable, 1, 1, str.tostring(swingHigh, format.mintick), text_color=color.blue)
+    table.cell(infoTable, 0, 1, "Trend", text_color=color.white)
+    trendText = isUptrend ? "Uptrend" : isDowntrend ? "Downtrend" : "Neutral"
+    trendColor = isUptrend ? color.green : isDowntrend ? color.red : color.gray
+    table.cell(infoTable, 1, 1, trendText, text_color=trendColor)
 
-    table.cell(infoTable, 0, 2, "Swing Low", text_color=color.white)
-    table.cell(infoTable, 1, 2, str.tostring(swingLow, format.mintick), text_color=color.blue)
+    table.cell(infoTable, 0, 2, "Swing High", text_color=color.white)
+    table.cell(infoTable, 1, 2, str.tostring(swingHigh, format.mintick), text_color=color.blue)
 
-    table.cell(infoTable, 0, 3, "Range", text_color=color.white)
-    table.cell(infoTable, 1, 3, str.tostring(moveRange, format.mintick), text_color=color.white)
+    table.cell(infoTable, 0, 3, "Swing Low", text_color=color.white)
+    table.cell(infoTable, 1, 3, str.tostring(swingLow, format.mintick), text_color=color.blue)
 
-    table.cell(infoTable, 0, 4, "Current Price", text_color=color.white)
-    table.cell(infoTable, 1, 4, str.tostring(currentPrice, format.mintick), text_color=color.white)
+    table.cell(infoTable, 0, 4, "Range", text_color=color.white)
+    table.cell(infoTable, 1, 4, str.tostring(moveRange, format.mintick), text_color=color.white)
 
-    table.cell(infoTable, 0, 5, "Pullback %", text_color=color.white)
+    table.cell(infoTable, 0, 5, "Current Price", text_color=color.white)
+    table.cell(infoTable, 1, 5, str.tostring(currentPrice, format.mintick), text_color=color.white)
+
+    table.cell(infoTable, 0, 6, "Pullback %", text_color=color.white)
     pullbackColor = level4Hit ? color.red : level3Hit ? color.orange : level2Hit ? color.yellow : level1Hit ? color.green : color.gray
-    table.cell(infoTable, 1, 5, str.tostring(currentPullbackPercent, "#.##") + "%", text_color=pullbackColor)
+    table.cell(infoTable, 1, 6, str.tostring(currentPullbackPercent, "#.##") + "%", text_color=pullbackColor)
 
-    table.cell(infoTable, 0, 6, "Status", text_color=color.white)
+    table.cell(infoTable, 0, 7, "Status", text_color=color.white)
     statusText = level4Hit ? "L4 (" + str.tostring(level4) + "%)" : level3Hit ? "L3 (" + str.tostring(level3) + "%)" : level2Hit ? "L2 (" + str.tostring(level2) + "%)" : level1Hit ? "L1 (" + str.tostring(level1) + "%)" : "Watching"
     statusColor = level4Hit ? color.red : level3Hit ? color.orange : level2Hit ? color.yellow : level1Hit ? color.green : color.gray
-    table.cell(infoTable, 1, 6, statusText, text_color=statusColor)
+    table.cell(infoTable, 1, 7, statusText, text_color=statusColor)
 
 // ============================================================================
 // ALERTS
