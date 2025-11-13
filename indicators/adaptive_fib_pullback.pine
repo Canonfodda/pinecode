@@ -23,9 +23,9 @@ showTable = input.bool(true, "Show Info Table")
 // ============================================================================
 atrValue = ta.atr(atrPeriod)
 avgATR = ta.sma(atrValue, 20)
-atrRatio = atrValue / avgATR
+atrRatio = avgATR > 0 ? atrValue / avgATR : 1.0
 adaptiveLookback = useATRAdaptive ? int(lookbackPeriod * (1 + atrMultiplier * (atrRatio - 1))) : lookbackPeriod
-finalLookback = math.max(5, math.min(adaptiveLookback, 200))
+finalLookback = math.max(5, math.min(nz(adaptiveLookback, lookbackPeriod), 200))
 
 // ============================================================================
 // SWING LOW AND HIGH DETECTION
