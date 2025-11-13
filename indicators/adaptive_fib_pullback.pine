@@ -4,52 +4,48 @@ indicator("Adaptive Fib Pullback Monitor", overlay=true)
 // ============================================================================
 // INPUTS
 // ============================================================================
-fractalPeriod = input.int(5, "Fractal Period", minval=2, maxval=50, tooltip="Number of bars before/after for fractal detection")
+pivotLookback = input.int(20, "Pivot Lookback Period", minval=5, maxval=200, tooltip="Number of bars to look back for pivot high/low")
 
 // ============================================================================
-// WILLIAMS FRACTAL DETECTION
+// PIVOT HIGH/LOW DETECTION
 // ============================================================================
-// Fractal High: high is higher than N bars before AND N bars after
-// Fractal Low: low is lower than N bars before AND N bars after
+// Find the highest high and lowest low over the lookback period
+pivotHigh = ta.highest(high, pivotLookback)
+pivotLow = ta.lowest(low, pivotLookback)
 
-isFractalHigh = true
-isFractalLow = true
+// Detect when a new pivot is formed (value changed from previous bar)
+newPivotHigh = pivotHigh != pivotHigh[1]
+newPivotLow = pivotLow != pivotLow[1]
 
-for i = 1 to fractalPeriod
-    if high[fractalPeriod] <= high[fractalPeriod + i] or high[fractalPeriod] <= high[fractalPeriod - i]
-        isFractalHigh := false
-    if low[fractalPeriod] >= low[fractalPeriod + i] or low[fractalPeriod] >= low[fractalPeriod - i]
-        isFractalLow := false
+// Track only the MOST RECENT pivot point (either high or low)
+var float lastPivotPrice = na
+var int lastPivotBar = 0
+var bool lastPivotIsHigh = true  // true = high, false = low
+var line pivotLine = na
 
-// Track only the MOST RECENT fractal point (either high or low)
-var float lastFractalPrice = na
-var int lastFractalBar = 0
-var bool lastFractalIsHigh = true  // true = high, false = low
-var line fractalLine = na
+if newPivotHigh
+    lastPivotPrice := pivotHigh
+    lastPivotBar := bar_index
+    lastPivotIsHigh := true
 
-if isFractalHigh
-    lastFractalPrice := high[fractalPeriod]
-    lastFractalBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
-    lastFractalIsHigh := true
+    // Delete old line and draw new one from pivot high
+    if not na(pivotLine)
+        line.delete(pivotLine)
+    pivotLine := line.new(lastPivotBar, lastPivotPrice, bar_index, lastPivotPrice, color=color.red, width=2, extend=extend.right)
 
-    // Delete old line and draw new one from fractal high
-    if not na(fractalLine)
-        line.delete(fractalLine)
-    fractalLine := line.new(lastFractalBar, lastFractalPrice, bar_index, lastFractalPrice, color=color.red, width=2, extend=extend.right)
+if newPivotLow
+    lastPivotPrice := pivotLow
+    lastPivotBar := bar_index
+    lastPivotIsHigh := false
 
-if isFractalLow
-    lastFractalPrice := low[fractalPeriod]
-    lastFractalBar := bar_index - fractalPeriod  // The fractal occurred N bars ago
-    lastFractalIsHigh := false
-
-    // Delete old line and draw new one from fractal low
-    if not na(fractalLine)
-        line.delete(fractalLine)
-    fractalLine := line.new(lastFractalBar, lastFractalPrice, bar_index, lastFractalPrice, color=color.green, width=2, extend=extend.right)
+    // Delete old line and draw new one from pivot low
+    if not na(pivotLine)
+        line.delete(pivotLine)
+    pivotLine := line.new(lastPivotBar, lastPivotPrice, bar_index, lastPivotPrice, color=color.green, width=2, extend=extend.right)
 
 // ============================================================================
 // VISUAL OUTPUTS
 // ============================================================================
-// Mark fractal points when detected
-plotshape(isFractalHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=-fractalPeriod, title="Fractal High")
-plotshape(isFractalLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=-fractalPeriod, title="Fractal Low")
+// Mark pivot points when detected
+plotshape(newPivotHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Pivot High")
+plotshape(newPivotLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="Pivot Low")
